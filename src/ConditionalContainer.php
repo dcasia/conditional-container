@@ -39,11 +39,6 @@ class ConditionalContainer extends Field
         $this->fields = collect($fields);
         $this->conditions = collect();
 
-        $this->withMeta([
-            'conditions' => $this->conditions,
-            'fields' => $this->fields
-        ]);
-
     }
 
     private function parseIf(string $attribute, $operator, $value = null)
@@ -250,6 +245,8 @@ class ConditionalContainer extends Field
                 return $value >= $condition[ 'value' ];
             case '<=':
                 return $value <= $condition[ 'value' ];
+            case 'truthy':
+                return $condition[ 'value' ] ? !!$value : !$value;
             default :
                 return false;
 
@@ -288,6 +285,14 @@ class ConditionalContainer extends Field
 
         return $matched ? $this->fields->toArray() : [];
 
+    }
+
+    public function jsonSerialize()
+    {
+        return array_merge([
+            'fields' => $this->fields,
+            'conditions' => $this->conditions
+        ], parent::jsonSerialize());
     }
 
 }

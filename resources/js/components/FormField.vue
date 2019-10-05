@@ -113,6 +113,8 @@
                         return value >= condition.value
                     case '<=':
                         return value <= condition.value
+                    case 'truthy':
+                        return condition.value ? !!value : !value
                     default :
                         return false
 
@@ -145,6 +147,12 @@
 
                     case 'morph-to-field':
                         return 'resourceType'
+
+                    case 'file-field':
+                        return 'file'
+
+                    case 'key-value-field':
+                        return 'finalPayload'
 
                     default:
                         return 'value'

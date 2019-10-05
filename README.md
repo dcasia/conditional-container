@@ -96,16 +96,17 @@ Example of an equivalent output: `->if('option', 1)` and `->if('option', '===', 
 
 #### Current Supported Operators
 
-| Operator | Description              |
-|----------|--------------------------|
-| >        | Greater than             |
-| <        | Less than                |
-| <=       | Less than or equal to    |
-| >=       | Greater than or equal to |
-| ==       | Equal                    |
-| ===      | Identical                |
-| !=       | Not equal                |
-| !==      | Not Identical            |
+| Operator | Description                    |
+|----------|--------------------------------|
+| >        | Greater than                   |
+| <        | Less than                      |
+| <=       | Less than or equal to          |
+| >=       | Greater than or equal to       |
+| ==       | Equal                          |
+| ===      | Identical                      |
+| !=       | Not equal                      |
+| !==      | Not Identical                  |
+| truthy   | Validate against truthy values |
 
 #### MorphTo
 
@@ -130,7 +131,50 @@ public function fields(Request $request)
 }
 ```
 
-#### Notes
+#### Examples
+
+* Display field only if user has selected file
+
+```php
+[
+    Image::make('Image'),
+    ConditionalContainer::make([ Text::make('caption')->rules('required') ])
+                        ->if('image', 'truthy', true),
+]
+```
+
+* Display extra fields only if selected morph relation is of type Image or Video
+
+```php
+[
+    MorphTo::make('Resource Type', 'fileable')->types([
+        App\Nova\Image::class,
+        App\Nova\Video::class,
+        App\Nova\File::class,
+    ]),
+    
+    ConditionalContainer::make([ Image::make('thumbnail')->rules('required') ])
+                        ->if('fileable', App\Nova\Image::class)
+                        ->if('fileable', App\Nova\Video::class),
+]
+```
+
+* Display inline HTML only if `Reason` field is empty, show extra fields otherwise.
+
+```php
+[
+    Trix::make('Reason'),
+    
+    ConditionalContainer::make([ Text::make('Extra Information')->rules('required') ])
+                        ->if('reason', 'truthy', true),
+    
+    ConditionalContainer::make([
+                            Heading::make('<p class="text-danger">Please write a good reason...</p>')->asHtml()
+                        ])
+                        ->if('reason', 'truthy', false),
+]
+```
+## Notes
 
 While inspired by [nova-dependency-container](https://github.com/epartment/nova-dependency-container), 
 ConditionalContainer takes a different approach to solve somewhat the same problem. 
@@ -140,7 +184,7 @@ tries to be the least intrusive as possible.
 However it hasn't yet been battle-tested against every use case out there but my own, so if you find any issue 
 please let us know or if you know how to fix it don't hesitate to submit a PR :)
 
-#### Roadmap
+## Roadmap
 
 - Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
 - Add Support for depending on a field that is within another ConditionalContainer, example:
