@@ -19,7 +19,7 @@
 
 <script>
     import {FormField, HandlesValidationErrors} from 'laravel-nova'
-    import flatten from 'lodash.flatten'
+    import logipar from 'logipar'
 
     export default {
         mixins: [FormField, HandlesValidationErrors],
@@ -27,38 +27,65 @@
         props: ['resourceName', 'resourceId', 'field'],
 
         data() {
+
             return {
                 values: {},
+                resolvers: this.field.expressions.map(expression => {
+
+                    const parser = new logipar.Logipar()
+
+                    parser.parse(expression)
+
+                    return parser.filterFunction(this.relationalOperatorLeafResolver)
+
+                }),
                 conditionSatisfied: false
             }
         },
 
         created() {
 
-            console.log('works')
-
             this.registerDependencyWatchers(this.$parent.$children)
 
         },
 
         computed: {
-            // watchableAttributes() {
-            //
-            //     const conditionals = this.field.fields
-            //         .filter(field => field.attribute.startsWith('conditional_container'))
-            //         .map(field => flatten(field.conditions))
-            //
-            //     return flatten(conditionals).map(({attribute}) => attribute)
-            //
-            // },
             watchableAttributes() {
 
-                return flatten(this.field.conditions).map(({attribute}) => attribute)
+                const attributes = []
+
+                this.parser.walk(node => {
+
+                    if (node.token.type === 'LITERAL') {
+
+                        const [attribute] = this.splitLiteral(node.token.literal)
+
+                        attributes.push(attribute)
+
+                    }
+
+                })
+
+                return attributes
 
             }
         },
 
         methods: {
+
+            relationalOperatorLeafResolver(values, literal) {
+
+                const [attribute, operator, value] = this.splitLiteral(literal)
+
+                if (values.hasOwnProperty(attribute)) {
+
+                    return this.executeConditionStatement(values[attribute], operator, value)
+
+                }
+
+                return false
+
+            },
 
             registerDependencyWatchers(components) {
 
@@ -66,15 +93,18 @@
 
                     const attribute = component.field.attribute
 
-                    if (this.watchableAttributes.includes(attribute)) {
+                    /**
+                     * @todo walk the tokens tree in order to determine if a value should be watchable or not!!!
+                     */
+                    // if (this.watchableAttributes.includes(attribute)) {
+                    if (this.field.expressions.join(',').includes(attribute)) {
 
                         const watchableAttribute = this.findWatchableComponentAttribute(component)
 
                         component.$watch(watchableAttribute, value => {
 
                             this.values[attribute] = value
-
-                            this.conditionSatisfied = this.valueMatchCondition()
+                            this.conditionSatisfied = this.resolvers.some(resolver => resolver(this.values))
 
                         }, {immediate: true})
 
@@ -84,57 +114,81 @@
 
             },
 
-            executeCondition(condition, value) {
+            splitLiteral(literal) {
 
-                if (typeof condition.value === 'number') {
+                const operators = [
+                    '===', '==', '=', '!==', '!=',
+                    '>=', '<=', '<', '>',
+                    'includes', 'contains', 'truthy',
+                    'ends with', 'starts with'
+                ]
 
-                    /**
-                     * @todo handle float
-                     */
-                    value = parseInt(value)
+                const operator = operators.find(operator => literal.includes(operator))
 
-                }
+                if (!operator) {
 
-                switch (condition.operator) {
-
-                    case '==':
-                        return value == condition.value
-                    case '===':
-                        return value === condition.value
-                    case '!=':
-                        return value != condition.value
-                    case '!==':
-                        return value !== condition.value
-                    case '>':
-                        return value > condition.value
-                    case '<':
-                        return value < condition.value
-                    case '>=':
-                        return value >= condition.value
-                    case '<=':
-                        return value <= condition.value
-                    case 'truthy':
-                        return condition.value ? !!value : !value
-                    default :
-                        return false
+                    throw 'Invalid operator! ' + literal
 
                 }
+
+                const chunks = literal.split(operator)
+
+                return [
+                    chunks.shift().trim(),
+                    operator,
+                    chunks.join(operator).trim()
+                ]
 
             },
 
-            valueMatchCondition() {
+            executeConditionStatement(attributeValue, operator, conditionValue) {
 
-                return this.field.conditions.some(condition => {
+                if (['<', '>', '<=', '>='].includes(operator) && conditionValue) {
 
-                    if (!Array.isArray(condition)) condition = [condition]
+                    attributeValue = parseInt(attributeValue)
+                    conditionValue = parseInt(conditionValue)
 
-                    return condition.every(item =>
-                        this.executeCondition(
-                            item, this.values[item.attribute]
-                        )
-                    )
+                }
 
-                })
+                if (['true', 'false'].includes(conditionValue)) {
+
+                    conditionValue = conditionValue === 'true'
+
+                }
+
+                switch (operator) {
+
+                    case '=':
+                    case '==':
+                    case '===':
+                        return attributeValue === conditionValue
+                    case '!=':
+                        return attributeValue != conditionValue
+                    case '!==':
+                        return attributeValue !== conditionValue
+                    case '>':
+                        return attributeValue > conditionValue
+                    case '<':
+                        return attributeValue < conditionValue
+                    case '>=':
+                        return attributeValue >= conditionValue
+                    case '<=':
+                        return attributeValue <= conditionValue
+                    case 'truthy':
+                        return conditionValue ? !!attributeValue : !attributeValue
+                    case 'includes':
+                    case 'contains':
+                        return attributeValue.includes(conditionValue)
+                    case 'startsWith':
+                    case 'starts with':
+                        return attributeValue.startsWith(conditionValue)
+                    case 'endsWith':
+                    case 'ends with':
+                        return attributeValue.endsWith(conditionValue)
+                    default:
+                        return false
+
+                }
 
             },
 

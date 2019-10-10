@@ -8,7 +8,6 @@ use Laravel\Nova\Http\Controllers\ActionController;
 use Laravel\Nova\Http\Controllers\AssociatableController;
 use Laravel\Nova\Http\Controllers\AttachableController;
 use Laravel\Nova\Http\Controllers\CreationFieldController;
-use Laravel\Nova\Http\Controllers\CreationPivotFieldController;
 use Laravel\Nova\Http\Controllers\FieldController;
 use Laravel\Nova\Http\Controllers\MorphableController;
 use Laravel\Nova\Http\Controllers\ResourceAttachController;
@@ -94,11 +93,11 @@ trait HasConditionalContainer
                 if ($controller instanceof ResourceUpdateController ||
                     $controller instanceof ResourceStoreController) {
 
-                    return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingRequest($this, $fields, $request));
+                    return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingRequest($request));
 
                 }
 
-                return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingResource($this, $fields, $request));
+                return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingResource($this));
 
             }
 

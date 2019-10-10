@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Nova\Events\ServingNova;
 use Laravel\Nova\Nova;
 
+require_once 'Logipar.phar';
+
 class ConditionalContainerServiceProvider extends ServiceProvider
 {
     /**
