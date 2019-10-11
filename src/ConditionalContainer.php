@@ -29,6 +29,11 @@ class ConditionalContainer extends Field
     public $expressions;
 
     /**
+     * @var Collection
+     */
+    private $operators;
+
+    /**
      * ConditionalContainer constructor.
      *
      * @param array $fields
@@ -40,14 +45,29 @@ class ConditionalContainer extends Field
 
         $this->fields = collect($fields);
         $this->expressions = collect();
+        $this->operators = collect([
+            '===', '==', '=',
+            '!==', '!=',
+            '>=', '<=', '<', '>',
+            'includes', 'contains',
+            'ends with', 'starts with', 'startsWith', 'endsWith',
+            'boolean', 'truthy'
+        ]);
+
+        $this->withMeta([ 'operation' => 'some' ]);
 
     }
 
-    public function expression(string $expression): self
+    public function if($expression): self
     {
         $this->expressions->push($expression);
 
         return $this;
+    }
+
+    public function orIf(string $expression): self
+    {
+        return $this->if($expression);
     }
 
     /**
@@ -86,14 +106,19 @@ class ConditionalContainer extends Field
 
     }
 
-    private function relationalOperatorLeafResolver(Collection $values, string $literal)
+    public function useAndOperator(): self
+    {
+        return $this->withMeta([ 'operation' => 'every' ]);
+    }
+
+    private function relationalOperatorLeafResolver(Collection $values, string $literal): bool
     {
 
         [ $attribute, $operator, $value ] = $this->splitLiteral($literal);
 
         if ($values->keys()->contains($attribute)) {
 
-            return $this->executeConditionStatement($values->get($attribute), $operator, $value);
+            return $this->executeCondition($values->get($attribute), $operator, $value);
 
         }
 
@@ -101,8 +126,10 @@ class ConditionalContainer extends Field
 
     }
 
-    private function executeConditionStatement($attributeValue, string $operator, $conditionValue)
+    private function executeCondition($attributeValue, string $operator, $conditionValue): bool
     {
+
+        $conditionValue = trim($conditionValue, '"\'');
 
         if (in_array($operator, [ '<', '>', '<=', '>=' ]) && $conditionValue) {
 
@@ -121,6 +148,7 @@ class ConditionalContainer extends Field
 
             case '=':
             case '==':
+                return $attributeValue == $conditionValue;
             case '===':
                 return $attributeValue === $conditionValue;
             case '!=':
@@ -135,6 +163,7 @@ class ConditionalContainer extends Field
                 return $attributeValue >= $conditionValue;
             case '<=':
                 return $attributeValue <= $conditionValue;
+            case 'boolean':
             case 'truthy':
                 return $conditionValue ? !!$attributeValue : !$attributeValue;
             case 'includes':
@@ -156,14 +185,7 @@ class ConditionalContainer extends Field
     private function splitLiteral(string $literal): array
     {
 
-        $operators = collect([
-            '===', '==', '=', '!==', '!=',
-            '>=', '<=', '<', '>',
-            'includes', 'contains', 'truthy',
-            'ends with', 'starts with'
-        ]);
-
-        $operator = $operators
+        $operator = $this->operators
             ->filter(function ($operator) use ($literal) {
                 return strpos($literal, $operator) !== false;
             })
@@ -183,10 +205,10 @@ class ConditionalContainer extends Field
 
     private function runConditions(Collection $values): bool
     {
-        return $this->expressions->some(function ($expression) use ($values) {
+        return $this->expressions->{$this->meta[ 'operation' ]}(function ($expression) use ($values) {
 
             $parser = new Logipar();
-            $parser->parse(is_callable($expression) ? $expression($values) : $expression);
+            $parser->parse(is_callable($expression) ? $expression() : $expression);
 
             $resolver = $parser->filterFunction(function (...$arguments) {
                 return $this->relationalOperatorLeafResolver(...$arguments);
@@ -229,7 +251,11 @@ class ConditionalContainer extends Field
     {
         return array_merge([
             'fields' => $this->fields,
-            'expressions' => $this->expressions
+            'expressions' => $this->expressions->map(function ($expression) {
+
+                return is_callable($expression) ? $expression() : $expression;
+
+            }),
         ], parent::jsonSerialize());
     }
 

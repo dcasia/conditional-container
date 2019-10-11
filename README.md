@@ -46,19 +46,19 @@ class ExampleNovaResource extends Resource {
              * Only show field Text::make('Field A') if the value of option is equals 1
              */
             ConditionalContainer::make([ Text::make('Field A') ])
-                                ->if('option', 1),
+                                ->if('option = 1'),
     
             /**
-             * Equivalent to: if($option === 2 && $content === 'example')
+             * Equivalent to: if($option === 2 && $content === 'hello world')
              */
             ConditionalContainer::make([ Text::make('Field B') ])
-                                ->if([ 'option', 2 ], [ 'content', '===', 'example' ]),
+                                ->if('option = 2 AND content = "hello world"'),
     
             /**
-             * Equivalent to: if($option !== 2 && $content > 10)
+             * Equivalent to: if(($option !== 2 && $content > 10) || $option === 3)
              */
             ConditionalContainer::make([ Text::make('Field C')->rules('required') ])
-                                ->if([ 'option', '!==', 2 ], [ 'content', '>', 10 ]),
+                                ->if('(option != 2 AND content > 10) OR option = 3'),
            
             /**
              * Example with Validation and nested ConditionalContainer!
@@ -66,70 +66,64 @@ class ExampleNovaResource extends Resource {
              */
             ConditionalContainer::make([
 
-                                    Text::make('Field D')->rules('required') // Yeah! validatio works flawlessly!!
+                                    Text::make('Field D')->rules('required') // Yeah! validation works flawlessly!!
                                 
                                     ConditionalContainer::make([ Text::make('Field E') ])
-                                                        ->if('field_d', 'Nice!')
+                                                        ->if('field_d = Nice!')
                                 
                                 ])
-                                ->if('option', 3)
-                                ->if('content', 'demo')
+                                ->if('option = 3 OR content = demo')
         ];
     }
 
 }
 ```
 
-The `->if()` method takes 3 arguments:
- - `$attribute` the name of the other field this ConditionalContainer will use for comparision
- - `$operator` one of the supported operator symbol.
- - `$value` the actual expected value of the attribute to consider the operation truthy 
+The `->if()` method takes a single expression argument the follow this format `(attribute COMPARATOR value) OPERATOR ...so on`,
+you can build any complex logical operation by wrapping your condition in `()` examples:
 
 ```php
-public function if(string $attribute, string $operator = '===', $value = null) {
-  //...
-}
+->if('first_name = John')
+->if('(first_name = John AND last_name = Doe) OR (first_name = foo AND NOT last_name = bar)')
+->if('first_name = John AND last_name = Doe')
 ```
 
-If the third argument is omitted, the operator will default to `===`.
-Example of an equivalent output: `->if('option', 1)` and `->if('option', '===', 1)`
-
-#### Current Supported Operators
-
-| Operator | Description                    |
-|----------|--------------------------------|
-| >        | Greater than                   |
-| <        | Less than                      |
-| <=       | Less than or equal to          |
-| >=       | Greater than or equal to       |
-| ==       | Equal                          |
-| ===      | Identical                      |
-| !=       | Not equal                      |
-| !==      | Not Identical                  |
-| truthy   | Validate against truthy values |
-
-#### MorphTo
-
-When dealing with a `morphTo` relationship you can pass either ID for comparision or the class itself example:
+you can chain multiple `->if()` together to group your expressions by concern, example:
 
 ```php
-public function fields(Request $request)
-{
-    return [
-
-        MorphTo::make('commentable')->types([
-            App\Nova\Video::class,
-            App\Nova\Image::class,
-            App\Nova\Post::class,
-        ]),
-
-        ConditionalContainer::make([ ... ])->if('commentable', '===', App\Nova\Video::class),
-        // or
-        ConditionalContainer::make([ ... ])->if('commentable', '===', 31)
-
-    ];
-}
+ ConditionalContainer::make(...)
+                     ->if('age > 18 AND gender = male')
+                     ->if('A contains "some word"'),
+                     ->if('B contains "another word"'),
 ```
+
+by default the operation applied on them will be `OR`, therefore if any of the if methods evaluates to true the whole 
+operation will be considered truthy, if you want to execute an `AND` operation instead append `->useAndOperator()` to the chain
+
+##### Currently supported operators:
+
+- AND
+- OR
+- NOT
+- XOR
+- and parentheses
+
+##### Currently supported comparators:
+
+| Comparator          | Description                                    |
+|---------------------|------------------------------------------------|
+| >                   | Greater than                                   |
+| <                   | Less than                                      |
+| <=                  | Less than or equal to                          |
+| >=                  | Greater than or equal to                       |
+| ==                  | Equal                                          |
+| ===                 | Identical                                      |
+| !=                  | Not equal                                      |
+| !==                 | Not Identical                                  |
+| truthy / boolean    | Validate against truthy values                 |
+| contains / includes | Check if input valid contains certain value    |
+| startsWith          | Check if input valid starts with certain value |
+| endsWith            | Check if input valid ends with certain value   |
 
 #### Examples
 
@@ -139,7 +133,7 @@ public function fields(Request $request)
 [
     Image::make('Image'),
     ConditionalContainer::make([ Text::make('caption')->rules('required') ])
-                        ->if('image', 'truthy', true),
+                        ->if('image truthy true'),
 ]
 ```
 
@@ -154,8 +148,12 @@ public function fields(Request $request)
     ]),
     
     ConditionalContainer::make([ Image::make('thumbnail')->rules('required') ])
-                        ->if('fileable', App\Nova\Image::class)
-                        ->if('fileable', App\Nova\Video::class),
+                        ->if(function () {
+                            return 'fileable = ' . App\Nova\Image::uriKey();
+                        })
+                        ->if(function () {
+                            return 'fileable = ' . App\Nova\Video::uriKey();
+                        })
 ]
 ```
 
@@ -166,12 +164,12 @@ public function fields(Request $request)
     Trix::make('Reason'),
     
     ConditionalContainer::make([ Text::make('Extra Information')->rules('required') ])
-                        ->if('reason', 'truthy', true),
+                        ->if('reason truthy true'),
     
     ConditionalContainer::make([
                             Heading::make('<p class="text-danger">Please write a good reason...</p>')->asHtml()
                         ])
-                        ->if('reason', 'truthy', false),
+                        ->if('reason truthy false'),
 ]
 ```
 ## Notes
@@ -186,19 +184,19 @@ please let us know or if you know how to fix it don't hesitate to submit a PR :)
 
 ## Roadmap
 
-- Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
-- Add Support for depending on a field that is within another ConditionalContainer, example:
+[x] Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
+[] Add Support for depending on a field that is within another ConditionalContainer, example:
 
 ```php
 [
     Text::make('A'),
   
-    ConditionalContainer::make([ Text::make('B') ])->if('a', '===', 'foo') // Works!
-    ConditionalContainer::make([ Text::make('C') ])->if('b', '===', 'foo') // Doesnt work!
+    ConditionalContainer::make([ Text::make('B') ])->if('a === foo') // Works!
+    ConditionalContainer::make([ Text::make('C') ])->if('b === foo') // Doesnt work!
     ConditionalContainer::make([ 
         Text::make('D'),
-        ConditionalContainer::make([ Text::make('E') ])->if('d', '===', 'foo') // Works!
-    ])->if('a', '===', 'foo')
+        ConditionalContainer::make([ Text::make('E') ])->if('d === foo') // Works!
+    ])->if('a === foo')
     
     // currently it's not possible to depend on a field that is within a ConditionalContainer as seen on the second ConditionalContainer above
 ]

@@ -39,7 +39,15 @@
                     return parser.filterFunction(this.relationalOperatorLeafResolver)
 
                 }),
-                conditionSatisfied: false
+                conditionSatisfied: false,
+                operators: [
+                    '===', '==', '=',
+                    '!==', '!=',
+                    '>=', '<=', '<', '>',
+                    'includes', 'contains',
+                    'ends with', 'starts with', 'startsWith', 'endsWith',
+                    'boolean ', 'truthy'
+                ]
             }
         },
 
@@ -79,7 +87,7 @@
 
                 if (values.hasOwnProperty(attribute)) {
 
-                    return this.executeConditionStatement(values[attribute], operator, value)
+                    return this.executeCondition(values[attribute], operator, value)
 
                 }
 
@@ -104,7 +112,7 @@
                         component.$watch(watchableAttribute, value => {
 
                             this.values[attribute] = value
-                            this.conditionSatisfied = this.resolvers.some(resolver => resolver(this.values))
+                            this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(this.values))
 
                         }, {immediate: true})
 
@@ -116,14 +124,7 @@
 
             splitLiteral(literal) {
 
-                const operators = [
-                    '===', '==', '=', '!==', '!=',
-                    '>=', '<=', '<', '>',
-                    'includes', 'contains', 'truthy',
-                    'ends with', 'starts with'
-                ]
-
-                const operator = operators.find(operator => literal.includes(operator))
+                const operator = this.operators.find(operator => literal.includes(` ${operator} `))
 
                 if (!operator) {
 
@@ -141,7 +142,9 @@
 
             },
 
-            executeConditionStatement(attributeValue, operator, conditionValue) {
+            executeCondition(attributeValue, operator, conditionValue) {
+
+                conditionValue = conditionValue.replace(/^["'](.+)["']$/, '$1')
 
                 if (['<', '>', '<=', '>='].includes(operator) && conditionValue) {
 
@@ -160,6 +163,7 @@
 
                     case '=':
                     case '==':
+                        return attributeValue == conditionValue
                     case '===':
                         return attributeValue === conditionValue
                     case '!=':
@@ -174,6 +178,7 @@
                         return attributeValue >= conditionValue
                     case '<=':
                         return attributeValue <= conditionValue
+                    case 'boolean':
                     case 'truthy':
                         return conditionValue ? !!attributeValue : !attributeValue
                     case 'includes':
