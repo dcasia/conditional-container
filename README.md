@@ -100,7 +100,7 @@ you can chain multiple `->if()` together to group your expressions by concern, e
 by default the operation applied on them will be `OR`, therefore if any of the if methods evaluates to true the whole 
 operation will be considered truthy, if you want to execute an `AND` operation instead append `->useAndOperator()` to the chain
 
-##### Currently supported operators:
+### Currently supported operators:
 
 - AND
 - OR
@@ -108,7 +108,7 @@ operation will be considered truthy, if you want to execute an `AND` operation i
 - XOR
 - and parentheses
 
-##### Currently supported comparators:
+### Currently supported comparators:
 
 | Comparator          | Description                                    |
 |---------------------|------------------------------------------------|
@@ -184,8 +184,8 @@ please let us know or if you know how to fix it don't hesitate to submit a PR :)
 
 ## Roadmap
 
-[x] Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
-[] Add Support for depending on a field that is within another ConditionalContainer, example:
+- [x] Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
+- [ ] Add Support for depending on a field that is within another ConditionalContainer, example:
 
 ```php
 [
