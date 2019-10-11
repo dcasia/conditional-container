@@ -27,7 +27,7 @@ use DigitalCreative\ConditionalContainer\HasConditionalContainer;
 
 class ExampleNovaResource extends Resource {
 
-    use HasConditionalContainer; // Imporant!!
+    use HasConditionalContainer; // Important!!
 
     public function fields(Request $request)
     {
@@ -79,25 +79,31 @@ class ExampleNovaResource extends Resource {
 }
 ```
 
-The `->if()` method takes a single expression argument the follow this format `(attribute COMPARATOR value) OPERATOR ...so on`,
+The `->if()` method takes a single expression argument that follows this format:
+ 
+```
+(attribute COMPARATOR value) OPERATOR ...so on
+```
+ 
 you can build any complex logical operation by wrapping your condition in `()` examples:
 
 ```php
-->if('first_name = John')
-->if('(first_name = John AND last_name = Doe) OR (first_name = foo AND NOT last_name = bar)')
-->if('first_name = John AND last_name = Doe')
+ConditionalContainer::make(...)->if('first_name = John');
+ConditionalContainer::make(...)->if('(first_name = John AND last_name = Doe) OR (first_name = foo AND NOT last_name = bar)');
+ConditionalContainer::make(...)->if('first_name = John AND last_name = Doe');
 ```
 
 you can chain multiple `->if()` together to group your expressions by concern, example:
 
 ```php
- ConditionalContainer::make(...)
-                     ->if('age > 18 AND gender = male')
-                     ->if('A contains "some word"'),
-                     ->if('B contains "another word"'),
+ConditionalContainer::make(...)
+                    //->useAndOperator()
+                    ->if('age > 18 AND gender = male')
+                    ->if('A contains "some word"')
+                    ->if('B contains "another word"');
 ```
 
-by default the operation applied on them will be `OR`, therefore if any of the if methods evaluates to true the whole 
+by default the operation applied on each `->if()` will be `OR`, therefore if any of the if methods evaluates to true the whole 
 operation will be considered truthy, if you want to execute an `AND` operation instead append `->useAndOperator()` to the chain
 
 ### Currently supported operators:
