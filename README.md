@@ -191,7 +191,7 @@ please let us know or if you know how to fix it don't hesitate to submit a PR :)
 ## Roadmap
 
 - [x] Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
-- [ ] Add Support for depending on a field that is within another ConditionalContainer, example:
+- [x] Add Support for depending on a field that is within another ConditionalContainer, example:
 
 ```php
 [

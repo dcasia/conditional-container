@@ -34,14 +34,22 @@ trait HasConditionalContainer
                 'removeNonUpdateFields' :
                 'removeNonCreationFields';
 
+            $expressionsMap = $containers->flatMap->expressions;
+
             /**
              * @var ConditionalContainer $container
              */
             foreach ($containers as $container) {
 
-                $container->fields = $this->$cleanUpMethodName($request, collect(
-                    $this->filter($container->fields->toArray()))
-                );
+                $container->fields = $this->$cleanUpMethodName(
+                    $request, collect($this->filter($container->fields->toArray()))
+                )->values();
+
+                /**
+                 * Inject all the expressions from all the fields within all the containers, so
+                 * each container has an overall knowledge of what fields it should build up the listeners
+                 */
+                $container->withMeta([ 'expressionsMap' => $expressionsMap ]);
 
             }
 
@@ -49,6 +57,9 @@ trait HasConditionalContainer
 
         }
 
+        /**
+         * Whats is this controller for? seems to be executed when there is a BelongsToMany Field
+         */
         if ($controller instanceof ActionController) {
 
             return parent::availableFields($request);

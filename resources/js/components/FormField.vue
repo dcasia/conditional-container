@@ -1,14 +1,16 @@
 <template>
 
-    <div v-if="conditionSatisfied">
+    <div v-if="conditionSatisfied" class="conditional-container">
 
-        <div v-for="childField in field.fields">
+        <div v-for="(childField, index) in field.fields">
 
             <component
                 :is="'form-' + childField.component"
                 :errors="errors"
                 :resource-id="resourceId"
                 :resource-name="resourceName"
+                ref="fields"
+                @hook:mounted="registerItSelf(index)"
                 :field="childField"/>
 
         </div>
@@ -18,10 +20,16 @@
 </template>
 
 <script>
+
     import {FormField, HandlesValidationErrors} from 'laravel-nova'
     import logipar from 'logipar'
 
+    const valueBag = {}
+
     export default {
+
+        name: 'ConditionalContainer',
+
         mixins: [FormField, HandlesValidationErrors],
 
         props: ['resourceName', 'resourceId', 'field'],
@@ -29,7 +37,6 @@
         data() {
 
             return {
-                values: {},
                 resolvers: this.field.expressions.map(expression => {
 
                     const parser = new logipar.Logipar()
@@ -51,35 +58,61 @@
             }
         },
 
-        created() {
+        mounted() {
 
-            this.registerDependencyWatchers(this.$parent.$children)
+            this.$parent.$children
+                .filter(child => child.field && child.field.component !== 'conditional-container')
+                .forEach(component => this.registerDependencyWatchers(component))
+
+            this.$root.$on('update-conditional-container', this.checkResolver)
+            this.$on('hook:beforeDestroy', () => {
+                this.$root.$off('update-conditional-container', this.checkResolver)
+            })
+
+            this.checkResolver()
 
         },
 
         computed: {
             watchableAttributes() {
 
-                const attributes = []
-
-                this.parser.walk(node => {
-
-                    if (node.token.type === 'LITERAL') {
-
-                        const [attribute] = this.splitLiteral(node.token.literal)
-
-                        attributes.push(attribute)
-
-                    }
-
-                })
-
-                return attributes
+                return this.field.expressionsMap.join()
 
             }
+            // watchableAttributes() {
+            //
+            //     const attributes = []
+            //
+            //     this.parser.walk(node => {
+            //
+            //         if (node.token.type === 'LITERAL') {
+            //
+            //             const [attribute] = this.splitLiteral(node.token.literal)
+            //
+            //             attributes.push(attribute)
+            //
+            //         }
+            //
+            //     })
+            //
+            //     return attributes
+            //
+            // }
         },
 
         methods: {
+
+            checkResolver() {
+
+                this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(valueBag))
+
+            },
+
+            registerItSelf(index) {
+
+                this.registerDependencyWatchers(this.$refs.fields[index])
+
+            },
 
             relationalOperatorLeafResolver(values, literal) {
 
@@ -95,30 +128,42 @@
 
             },
 
-            registerDependencyWatchers(components) {
+            registerDependencyWatchers(component) {
 
-                components.forEach(component => {
+                const attribute = component.field.attribute
 
-                    const attribute = component.field.attribute
+                /**
+                 * @todo walk the tokens tree in order to determine if a value should be watchable or not!!!
+                 */
+                if (this.watchableAttributes.includes(attribute) && !valueBag.hasOwnProperty(attribute)) {
+
+                    const watchableAttribute = this.findWatchableComponentAttribute(component)
 
                     /**
-                     * @todo walk the tokens tree in order to determine if a value should be watchable or not!!!
+                     * Initialize bag with initial value
                      */
-                    // if (this.watchableAttributes.includes(attribute)) {
-                    if (this.field.expressions.join(',').includes(attribute)) {
+                    this.setBagValue(attribute, component[watchableAttribute])
 
-                        const watchableAttribute = this.findWatchableComponentAttribute(component)
+                    component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
+                    component.$watch(watchableAttribute, value => this.setBagValue(attribute, value))
 
-                        component.$watch(watchableAttribute, value => {
+                }
 
-                            this.values[attribute] = value
-                            this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(this.values))
+            },
 
-                        }, {immediate: true})
+            setBagValue(attribute, value) {
 
-                    }
+                valueBag[attribute] = value
 
-                })
+                this.$root.$emit('update-conditional-container')
+
+            },
+
+            deleteBagAttribute(attribute) {
+
+                delete valueBag[attribute]
+
+                this.$root.$emit('update-conditional-container')
 
             },
 

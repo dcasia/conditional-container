@@ -13,9 +13,6 @@
         "cross-env": "^5.0.0",
         "laravel-mix": "^1.0",
         "laravel-nova": "^1.0",
-        "lodash.flatten": "^4.4.0",
-        "lodash.groupby": "^4.6.0",
-        "lodash.map": "^4.6.0",
         "logipar": "^0.4.0"
     },
     "dependencies": {
