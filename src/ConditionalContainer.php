@@ -3,9 +3,12 @@
 namespace DigitalCreative\ConditionalContainer;
 
 use App\Nova\Resource;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Nova\Fields\Field;
+use Laravel\Nova\Http\Controllers\ResourceUpdateController;
+use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use logipar\Logipar;
 
@@ -80,6 +83,19 @@ class ConditionalContainer extends Field
      */
     public function resolve($resource, $attribute = null)
     {
+
+        /**
+         * Avoid unselected fields coming with pre-filled data on update
+         */
+        if (resolve(NovaRequest::class)->route()->controller instanceof UpdateFieldController) {
+
+            if (count($this->resolveDependencyFieldUsingResource($resource)) === 0) {
+
+                return;
+
+            }
+
+        }
 
         /**
          * @var Field $field
@@ -203,7 +219,7 @@ class ConditionalContainer extends Field
 
     }
 
-    private function runConditions(Collection $values): bool
+    public function runConditions(Collection $values): bool
     {
         return $this->expressions->{$this->meta[ 'operation' ]}(function ($expression) use ($values) {
 
@@ -220,25 +236,47 @@ class ConditionalContainer extends Field
     }
 
     /**
+     * @param Resource|Model $resource
      * @param NovaRequest $request
      *
      * @return array
      */
-    public function resolveDependencyFieldUsingRequest(NovaRequest $request): array
+    public function resolveDependencyFieldUsingRequest($resource, NovaRequest $request): array
     {
 
         $matched = $this->runConditions(collect($request->toArray()));
+
+        /**
+         * Imagine the situation where you have 2 fields with the same name, you conditionally show them based on X
+         * when field A is saved the db value is saved as A format, when you switch the value to B, now B is feed
+         * with the A data which may or may not be of the same shape (string / boolean for example)
+         * The following check resets the resource value with an "default" value before processing update
+         * Therefore avoiding format conflicts
+         */
+        if ($matched && $request->route()->controller instanceof ResourceUpdateController) {
+
+            foreach ($this->fields as $field) {
+
+                if ($field instanceof Field) {
+
+                    $resource->setAttribute($field->attribute, $field->value);
+
+                }
+
+            }
+
+        }
 
         return $matched ? $this->fields->toArray() : [];
 
     }
 
     /**
-     * @param Resource $resource
+     * @param Resource|Model $resource
      *
      * @return array
      */
-    public function resolveDependencyFieldUsingResource(Resource $resource): array
+    public function resolveDependencyFieldUsingResource($resource): array
     {
 
         $matched = $this->runConditions(collect($resource->toArray()));
