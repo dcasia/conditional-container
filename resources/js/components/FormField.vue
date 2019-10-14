@@ -2,7 +2,7 @@
 
     <div v-if="conditionSatisfied" class="conditional-container">
 
-        <div v-for="(childField, index) in field.fields" :key="index + resourceId">
+        <div v-for="(childField, index) in field.fields" :key="index">
 
             <component
                 ref="fields"
