@@ -2,16 +2,23 @@
 
     <div v-if="conditionSatisfied" class="conditional-container">
 
-        <div v-for="(childField, index) in field.fields">
+        <div v-for="(childField, index) in field.fields" :key="index + resourceId">
 
             <component
-                :is="'form-' + childField.component"
-                :errors="errors"
-                :resource-id="resourceId"
-                :resource-name="resourceName"
                 ref="fields"
                 @hook:mounted="registerItSelf(index)"
-                :field="childField"/>
+
+                :is="'form-' + childField.component"
+                :resource-name="resourceName"
+                :resource-id="resourceId"
+                :field="childField"
+                :errors="errors"
+                :related-resource-name="relatedResourceName"
+                :related-resource-id="relatedResourceId"
+                :via-resource="viaResource"
+                :via-resource-id="viaResourceId"
+                :via-relationship="viaRelationship"
+            />
 
         </div>
 
@@ -32,7 +39,16 @@
 
         mixins: [FormField, HandlesValidationErrors],
 
-        props: ['resourceName', 'resourceId', 'field'],
+        props: [
+            'field',
+            'resourceId',
+            'viaResource',
+            'resourceName',
+            'viaResourceId',
+            'viaRelationship',
+            'relatedResourceId',
+            'relatedResourceName'
+        ],
 
         data() {
 
@@ -60,12 +76,10 @@
 
         mounted() {
 
-            this.$parent.$children
-                .filter(child => child.field && child.field.component !== 'conditional-container')
-                .forEach(component => this.registerDependencyWatchers(component))
+            this.deepSearch(this.$root.$children)
 
             this.$root.$on('update-conditional-container', this.checkResolver)
-            this.$on('hook:beforeDestroy', () => {
+            this.$once('hook:beforeDestroy', () => {
                 this.$root.$off('update-conditional-container', this.checkResolver)
             })
 
@@ -101,6 +115,26 @@
         },
 
         methods: {
+
+            deepSearch(children) {
+
+                if (children) {
+
+                    for (const child of children) {
+
+                        if (child.field && child.field.component !== 'conditional-container') {
+
+                            this.registerDependencyWatchers(child)
+
+                        }
+
+                        this.deepSearch(child.$children)
+
+                    }
+
+                }
+
+            },
 
             checkResolver() {
 
