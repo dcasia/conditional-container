@@ -24,7 +24,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given detail request.
      *
      * @param \Laravel\Nova\Http\Requests\NovaRequest $request
-     * @return \Illuminate\Support\Collection
+     * @return array
      */
     public function availablePanelsForDetail($request)
     {
@@ -38,7 +38,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given create request.
      *
      * @param \Laravel\Nova\Http\Requests\NovaRequest $request
-     * @return \Illuminate\Support\Collection
+     * @return array
      */
     public function availablePanelsForCreate($request)
     {
@@ -52,7 +52,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given update request.
      *
      * @param \Laravel\Nova\Http\Requests\NovaRequest $request
-     * @return \Illuminate\Support\Collection
+     * @return array
      */
     public function availablePanelsForUpdate($request)
     {
@@ -150,7 +150,8 @@ trait HasConditionalContainer
                 /*
                  * If instance of any associative type flatten out all the fields
                  */
-                if ($controller instanceof AssociatableController ||
+                if (
+//                    $controller instanceof AssociatableController ||
 //                    $controller instanceof AttachableController ||
                     $controller instanceof MorphableController ||
                     $controller instanceof ResourceAttachController ||
