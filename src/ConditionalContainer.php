@@ -257,7 +257,7 @@ class ConditionalContainer extends Field
 
             foreach ($this->fields as $field) {
 
-                if ($field instanceof Field) {
+                if ($field instanceof Field && !blank($field->attribute)) {
 
                     $resource->setAttribute($field->attribute, $field->value);
 
