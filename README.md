@@ -127,9 +127,9 @@ operation will be considered truthy, if you want to execute an `AND` operation i
 | !=                  | Not equal                                      |
 | !==                 | Not Identical                                  |
 | truthy / boolean    | Validate against truthy values                 |
-| contains / includes | Check if input valid contains certain value    |
-| startsWith          | Check if input valid starts with certain value |
-| endsWith            | Check if input valid ends with certain value   |
+| contains / includes | Check if input contains certain value          |
+| startsWith          | Check if input starts with certain value       |
+| endsWith            | Check if input ends with certain value         |
 
 #### Examples
 
