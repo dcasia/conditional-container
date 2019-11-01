@@ -257,7 +257,7 @@ class ConditionalContainer extends Field
 
             foreach ($this->fields as $field) {
 
-                if ($field instanceof Field && !blank($field->attribute)) {
+                if ($field instanceof Field && !blank($field->attribute) && !$field instanceof \Whitecube\NovaFlexibleContent\Flexible) {
 
                     $resource->setAttribute($field->attribute, $field->value);
 
