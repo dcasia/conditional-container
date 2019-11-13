@@ -96,7 +96,7 @@ trait HasConditionalContainer
             foreach ($containers as $container) {
 
                 $container->fields = $this->$cleanUpMethodName(
-                    $request, collect($this->filter($container->fields->toArray()))
+                    $request, new FieldCollection($this->filter($container->fields->toArray()))
                 )->values();
 
                 /**
