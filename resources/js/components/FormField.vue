@@ -179,7 +179,7 @@
                     this.setBagValue(attribute, component[watchableAttribute])
 
                     component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
-                    component.$watch(watchableAttribute, value => this.setBagValue(attribute, value))
+                    component.$watch(watchableAttribute, value => this.setBagValue(attribute, this.parseComponentValue(component, value)))
 
                 }
 
@@ -232,6 +232,12 @@
 
                 }
 
+                if (!isNaN(conditionValue)) {
+
+                    conditionValue = parseInt(conditionValue)
+
+                }
+
                 if (['true', 'false'].includes(conditionValue)) {
 
                     conditionValue = conditionValue === 'true'
@@ -273,6 +279,23 @@
                         return false
 
                 }
+
+            },
+
+            parseComponentValue(component, value) {
+
+                switch (component.field.component) {
+
+                    /**
+                     * For some unknown reason this component stringify the value
+                     * https://github.com/dillingham/nova-attach-many/blob/2d461048d3e85de54795f6c03ae0bdad3356df6b/resources/js/components/FormField.vue#L210
+                     */
+                    case 'nova-attach-many':
+                        return JSON.parse(value)
+
+                }
+
+                return value
 
             },
 

@@ -2,7 +2,7 @@
 
 namespace DigitalCreative\ConditionalContainer;
 
-use App\Nova\Resource;
+use Laravel\Nova\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -111,14 +111,30 @@ class ConditionalContainer extends Field
     public function fill(NovaRequest $request, $model)
     {
 
+        $callbacks = [];
+
         /**
          * @var Field $field
          */
         foreach ($this->fields as $field) {
 
-            $field->fill($request, $model);
+            $callbacks[] = $field->fill($request, $model);
 
         }
+
+        return function () use ($callbacks) {
+
+            foreach ($callbacks as $callback) {
+
+                if (is_callable($callback)) {
+
+                    call_user_func($callback);
+
+                }
+
+            }
+
+        };
 
     }
 
@@ -154,6 +170,28 @@ class ConditionalContainer extends Field
 
         }
 
+        /**
+         * This is due that sometimes this function is call with data that comes
+         * directly from the request, therefore there may be occasion that the "model" casts
+         * may not be applied, if it doesnt cause any unforeseen issue it`s safe to keep this in here
+         */
+        if (is_string($attributeValue)) {
+
+            $attributeValue = json_decode($attributeValue, true) ?? $attributeValue;
+
+        }
+
+        /**
+         * If $attributeValue is an array and $operator contains/includes
+         * assumes user is trying to match id of a belongsToMany relationship
+         */
+        if (is_array($attributeValue) && in_array($operator, [ 'contains', 'includes' ])) {
+
+            $attributeValue = collect($attributeValue);
+            $conditionValue = (int) $conditionValue;
+
+        }
+
         if (in_array($conditionValue, [ 'true', 'false' ])) {
 
             $conditionValue = $conditionValue === 'true';
@@ -184,7 +222,18 @@ class ConditionalContainer extends Field
                 return $conditionValue ? !!$attributeValue : !$attributeValue;
             case 'includes':
             case 'contains':
+
+                /**
+                 * On the javascript side it uses ('' || []).includes() which works with array and string
+                 */
+                if ($attributeValue instanceof Collection) {
+
+                    return $attributeValue->contains($conditionValue);
+
+                }
+
                 return Str::contains($attributeValue, $conditionValue);
+
             case 'starts with':
             case 'startsWith':
                 return Str::startsWith($attributeValue, $conditionValue);
@@ -282,9 +331,38 @@ class ConditionalContainer extends Field
     public function resolveDependencyFieldUsingResource($resource): array
     {
 
-        $matched = $this->runConditions(collect($resource->toArray()));
+        $matched = $this->runConditions(
+            $this->flattenRelationships($resource)
+        );
 
         return $matched ? $this->fields->toArray() : [];
+
+    }
+
+    /**
+     * @param Model|Resource $resource
+     * @return Collection
+     */
+    private function flattenRelationships($resource): Collection
+    {
+
+        $data = collect($resource->toArray());
+
+        foreach ($resource->getRelations() as $relationName => $relation) {
+
+            if ($relation instanceof Collection) {
+
+                $data->put($relationName, $relation->map->getKey());
+
+            } else if ($relation instanceof Model) {
+
+                $data->put($relationName, $relation->getKey());
+
+            }
+
+        }
+
+        return $data;
 
     }
 
