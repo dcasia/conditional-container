@@ -2,7 +2,6 @@
 
 namespace DigitalCreative\ConditionalContainer;
 
-use Laravel\Nova\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -10,6 +9,7 @@ use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
+use Laravel\Nova\Resource;
 use logipar\Logipar;
 
 class ConditionalContainer extends Field
@@ -34,7 +34,14 @@ class ConditionalContainer extends Field
     /**
      * @var Collection
      */
-    private $operators;
+    const OPERATORS = [
+        '===', '==', '=',
+        '!==', '!=',
+        '>=', '<=', '<', '>',
+        'includes', 'contains',
+        'ends with', 'starts with', 'startsWith', 'endsWith',
+        'boolean', 'truthy'
+    ];
 
     /**
      * ConditionalContainer constructor.
@@ -48,14 +55,6 @@ class ConditionalContainer extends Field
 
         $this->fields = collect($fields);
         $this->expressions = collect();
-        $this->operators = collect([
-            '===', '==', '=',
-            '!==', '!=',
-            '>=', '<=', '<', '>',
-            'includes', 'contains',
-            'ends with', 'starts with', 'startsWith', 'endsWith',
-            'boolean', 'truthy'
-        ]);
 
         $this->withMeta([ 'operation' => 'some' ]);
 
@@ -163,32 +162,11 @@ class ConditionalContainer extends Field
 
         $conditionValue = trim($conditionValue, '"\'');
 
-        if (in_array($operator, [ '<', '>', '<=', '>=' ]) && $conditionValue) {
+        if (in_array($operator, [ '<', '>', '<=', '>=' ]) && $conditionValue ||
+            (is_numeric($attributeValue) && is_numeric($conditionValue))) {
 
             $conditionValue = (int) $conditionValue;
             $attributeValue = (int) $attributeValue;
-
-        }
-
-        /**
-         * This is due that sometimes this function is call with data that comes
-         * directly from the request, therefore there may be occasion that the "model" casts
-         * may not be applied, if it doesnt cause any unforeseen issue it`s safe to keep this in here
-         */
-        if (is_string($attributeValue)) {
-
-            $attributeValue = json_decode($attributeValue, true) ?? $attributeValue;
-
-        }
-
-        /**
-         * If $attributeValue is an array and $operator contains/includes
-         * assumes user is trying to match id of a belongsToMany relationship
-         */
-        if (is_array($attributeValue) && in_array($operator, [ 'contains', 'includes' ])) {
-
-            $attributeValue = collect($attributeValue);
-            $conditionValue = (int) $conditionValue;
 
         }
 
@@ -247,10 +225,10 @@ class ConditionalContainer extends Field
 
     }
 
-    private function splitLiteral(string $literal): array
+    public static function splitLiteral(string $literal): array
     {
 
-        $operator = $this->operators
+        $operator = collect(self::OPERATORS)
             ->filter(function ($operator) use ($literal) {
                 return strpos($literal, $operator) !== false;
             })
@@ -341,6 +319,7 @@ class ConditionalContainer extends Field
 
     /**
      * @param Model|Resource $resource
+     *
      * @return Collection
      */
     private function flattenRelationships($resource): Collection

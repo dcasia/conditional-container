@@ -4,13 +4,15 @@ namespace DigitalCreative\ConditionalContainer;
 
 use Illuminate\Http\Resources\MergeValue;
 use Illuminate\Support\Collection;
+use Laravel\Nova\Contracts\RelatableField;
+use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Fields\FieldCollection;
 use Laravel\Nova\Http\Controllers\ActionController;
-use Laravel\Nova\Http\Controllers\AssociatableController;
 use Laravel\Nova\Http\Controllers\CreationFieldController;
 use Laravel\Nova\Http\Controllers\FieldController;
 use Laravel\Nova\Http\Controllers\MorphableController;
 use Laravel\Nova\Http\Controllers\ResourceAttachController;
+use Laravel\Nova\Http\Controllers\ResourceIndexController;
 use Laravel\Nova\Http\Controllers\ResourceStoreController;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
@@ -23,7 +25,7 @@ trait HasConditionalContainer
     /**
      * Get the panels that are available for the given detail request.
      *
-     * @param \Laravel\Nova\Http\Requests\NovaRequest $request
+     * @param NovaRequest $request
      * @return array
      */
     public function availablePanelsForDetail($request)
@@ -37,7 +39,7 @@ trait HasConditionalContainer
     /**
      * Get the panels that are available for the given create request.
      *
-     * @param \Laravel\Nova\Http\Requests\NovaRequest $request
+     * @param NovaRequest $request
      * @return array
      */
     public function availablePanelsForCreate($request)
@@ -51,7 +53,7 @@ trait HasConditionalContainer
     /**
      * Get the panels that are available for the given update request.
      *
-     * @param \Laravel\Nova\Http\Requests\NovaRequest $request
+     * @param NovaRequest $request
      * @return array
      */
     public function availablePanelsForUpdate($request)
@@ -78,17 +80,29 @@ trait HasConditionalContainer
 
         $controller = $request->route()->controller;
 
+        /**
+         * Exclude all instance of conditional container from index views
+         */
+        if ($controller instanceof ResourceIndexController) {
+
+            return parent::availableFields($request)->filter(function ($field) {
+
+                return !($field instanceof ConditionalContainer);
+
+            });
+
+        }
+
         if ($controller instanceof CreationFieldController ||
             $controller instanceof UpdateFieldController) {
 
             $fields = parent::availableFields($request);
             $containers = $this->findAllContainers($fields);
+            $expressionsMap = $containers->flatMap->expressions;
 
             $cleanUpMethodName = $controller instanceof UpdateFieldController ?
                 'removeNonUpdateFields' :
                 'removeNonCreationFields';
-
-            $expressionsMap = $containers->flatMap->expressions;
 
             /**
              * @var ConditionalContainer $container
@@ -107,7 +121,7 @@ trait HasConditionalContainer
 
             }
 
-            return $fields;
+            return $this->preloadRelationships($expressionsMap, $fields);
 
         }
 
@@ -120,9 +134,53 @@ trait HasConditionalContainer
 
         }
 
-        $fields = $this->flattenDependencies($request, $this->fields($request));
+        $allFields = $this->fields($request);
+        $containers = $this->findAllContainers($allFields);
+        $expressionsMap = $containers->flatMap->expressions;
+
+        $fields = $this->flattenDependencies(
+            $request, $this->preloadRelationships($expressionsMap, $allFields)
+        );
 
         return new FieldCollection(array_values($this->filter($fields->toArray())));
+
+    }
+
+    private function preloadRelationships(Collection $expressionsMap, $fields)
+    {
+
+        $relations = collect();
+
+        foreach ($fields as $field) {
+
+            if ($field instanceof RelatableField ||
+                $field instanceof \NovaAttachMany\AttachMany ||
+                $field instanceof \Benjacho\BelongsToManyField\BelongsToManyField) {
+
+                $relations->push($field->attribute);
+
+            }
+
+        }
+
+        $expressionsMap = $expressionsMap->map(function (string $expression) {
+            return ConditionalContainer::splitLiteral($expression)[ 0 ];
+        });
+
+        /**
+         * Only load the relations that are necessary
+         */
+        $relations = $relations->filter(function ($relation) use ($expressionsMap) {
+            return $expressionsMap->contains($relation);
+        });
+
+        if ($relations->isNotEmpty()) {
+
+            $this->loadMissing($relations);
+
+        }
+
+        return $fields;
 
     }
 
@@ -139,7 +197,11 @@ trait HasConditionalContainer
 
         }
 
-        return $fields->flatMap(function ($field) use ($fields, $request, $controller) {
+        $fakeRequest = $request->duplicate();
+
+        return $fields->flatMap(function ($field) use ($fields, $fakeRequest, $controller) {
+
+            $this->parseThirdPartyPackageFieldValue($field, $fakeRequest);
 
             if ($field instanceof ConditionalContainer) {
 
@@ -157,30 +219,61 @@ trait HasConditionalContainer
                     $controller instanceof ResourceAttachController ||
                     $controller instanceof FieldController) {
 
-                    return $this->flattenDependencies($request, $field->fields->toArray());
+                    return $this->flattenDependencies($fakeRequest, $field->fields->toArray());
 
                 }
 
                 if ($controller instanceof ResourceUpdateController ||
                     $controller instanceof ResourceStoreController) {
 
-                    return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingRequest($this, $request));
+                    return $this->flattenDependencies(
+                        $fakeRequest, $field->resolveDependencyFieldUsingRequest($this, $fakeRequest)
+                    );
 
                 }
 
-                return $this->flattenDependencies($request, $field->resolveDependencyFieldUsingResource($this));
+                return $this->flattenDependencies($fakeRequest, $field->resolveDependencyFieldUsingResource($this));
 
             }
 
             if ($field instanceof MergeValue) {
 
-                return $this->flattenDependencies($request, $field->data);
+                return $this->flattenDependencies($fakeRequest, $field->data);
 
             }
 
             return [ $field ];
 
         });
+
+    }
+
+    /**
+     * Intended to minimize the incompatibility with third part package
+     *
+     * @param Field $field
+     * @param NovaRequest $request
+     */
+    private function parseThirdPartyPackageFieldValue(Field $field, NovaRequest $request)
+    {
+
+        $value = $request->get($field->attribute);
+
+        if ($field instanceof \Benjacho\BelongsToManyField\BelongsToManyField) {
+
+            $request->offsetSet(
+                $field->attribute, collect(json_decode($value, true))->map->id
+            );
+
+        }
+
+        if ($field instanceof \NovaAttachMany\AttachMany) {
+
+            $request->offsetSet(
+                $field->attribute, collect(json_decode($value, true))
+            );
+
+        }
 
     }
 
@@ -193,9 +286,9 @@ trait HasConditionalContainer
                     ->values();
     }
 
-    private function findAllContainers(Collection $fields): Collection
+    private function findAllContainers($fields): Collection
     {
-        return $fields->flatMap(function ($field) {
+        return collect($fields)->flatMap(function ($field) {
 
             if ($field instanceof ConditionalContainer) {
 
@@ -205,7 +298,7 @@ trait HasConditionalContainer
 
             if ($field instanceof MergeValue) {
 
-                return $this->findAllContainers(collect($field->data));
+                return $this->findAllContainers($field->data);
 
             }
 
