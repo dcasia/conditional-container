@@ -26,6 +26,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given detail request.
      *
      * @param NovaRequest $request
+     *
      * @return array
      */
     public function availablePanelsForDetail($request)
@@ -40,6 +41,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given create request.
      *
      * @param NovaRequest $request
+     *
      * @return array
      */
     public function availablePanelsForCreate($request)
@@ -54,6 +56,7 @@ trait HasConditionalContainer
      * Get the panels that are available for the given update request.
      *
      * @param NovaRequest $request
+     *
      * @return array
      */
     public function availablePanelsForUpdate($request)
@@ -201,7 +204,11 @@ trait HasConditionalContainer
 
         return $fields->flatMap(function ($field) use ($fields, $fakeRequest, $controller) {
 
-            $this->parseThirdPartyPackageFieldValue($field, $fakeRequest);
+            if ($field instanceof Field) {
+
+                $this->parseThirdPartyPackageFieldValue($field, $fakeRequest);
+
+            }
 
             if ($field instanceof ConditionalContainer) {
 
