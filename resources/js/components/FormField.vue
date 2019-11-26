@@ -64,9 +64,9 @@
                 }),
                 conditionSatisfied: false,
                 operators: [
-                    '===', '==', '=',
-                    '!==', '!=',
                     '>=', '<=', '<', '>',
+                    '!==', '!=',
+                    '===', '==', '=',
                     'includes', 'contains',
                     'ends with', 'starts with', 'startsWith', 'endsWith',
                     'boolean ', 'truthy'

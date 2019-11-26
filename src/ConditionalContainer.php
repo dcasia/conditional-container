@@ -35,9 +35,9 @@ class ConditionalContainer extends Field
      * @var Collection
      */
     const OPERATORS = [
-        '===', '==', '=',
-        '!==', '!=',
         '>=', '<=', '<', '>',
+        '!==', '!=',
+        '===', '==', '=',
         'includes', 'contains',
         'ends with', 'starts with', 'startsWith', 'endsWith',
         'boolean', 'truthy'
