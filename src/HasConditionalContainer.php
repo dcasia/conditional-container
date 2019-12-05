@@ -297,21 +297,39 @@ trait HasConditionalContainer
 
     private function findAllContainers($fields): Collection
     {
-        return collect($fields)->flatMap(function ($field) {
+        return collect($fields)
+            ->flatMap(function ($field) {
 
-            if ($field instanceof ConditionalContainer) {
+                if ($field instanceof ConditionalContainer) {
 
-                return $this->findAllContainers($field->fields)->concat([ $field ]);
+                    return $this->findAllContainers($field->fields)->concat([ $field ]);
 
-            }
+                }
 
-            if ($field instanceof MergeValue) {
+                if ($field instanceof MergeValue) {
 
-                return $this->findAllContainers($field->data);
+                    return $this->findAllContainers($field->data);
 
-            }
+                }
 
-        })->filter();
+            })
+            ->filter()
+            /**
+             * Pass all meta to it's $fields
+             */
+            ->each(function (ConditionalContainer $conditionalContainer) {
+
+                $conditionalContainer->fields->each(function ($field) use ($conditionalContainer) {
+
+                    if (method_exists($field, 'withMeta')) {
+
+                        $field->withMeta($conditionalContainer->meta());
+
+                    }
+
+                });
+
+            });
     }
 
 }
