@@ -8,6 +8,8 @@ use Laravel\Nova\Contracts\RelatableField;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Fields\FieldCollection;
 use Laravel\Nova\Http\Controllers\ActionController;
+use Laravel\Nova\Http\Controllers\AssociatableController;
+use Laravel\Nova\Http\Controllers\AttachableController;
 use Laravel\Nova\Http\Controllers\CreationFieldController;
 use Laravel\Nova\Http\Controllers\FieldController;
 use Laravel\Nova\Http\Controllers\MorphableController;
@@ -220,8 +222,8 @@ trait HasConditionalContainer
                  * If instance of any associative type flatten out all the fields
                  */
                 if (
-//                    $controller instanceof AssociatableController ||
-//                    $controller instanceof AttachableController ||
+                    $controller instanceof AssociatableController ||
+                    $controller instanceof AttachableController ||
                     $controller instanceof MorphableController ||
                     $controller instanceof ResourceAttachController ||
                     $controller instanceof FieldController) {

@@ -5,6 +5,8 @@ namespace DigitalCreative\ConditionalContainer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Laravel\Nova\Contracts\RelatableField;
+use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
@@ -287,6 +289,7 @@ class ConditionalContainer extends Field
                 if ($field instanceof Field &&
                     !blank($field->attribute) &&
                     !$field->isReadonly($request) &&
+                    !$field instanceof RelatableField &&
                     !$field instanceof \Whitecube\NovaFlexibleContent\Flexible) {
 
                     $resource->setAttribute($field->attribute, $field->value);
