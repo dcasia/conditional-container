@@ -2,22 +2,21 @@
 
     <div v-if="conditionSatisfied" class="conditional-container">
 
-        <div v-for="(childField, index) in field.fields" :key="index">
+        <div v-for="(field, index) in fields" :key="index">
 
             <component
-                ref="fields"
-                @hook:mounted="registerItSelf(index)"
-
-                :is="'form-' + childField.component"
-                :resource-name="resourceName"
-                :resource-id="resourceId"
-                :field="childField"
-                :errors="errors"
-                :related-resource-name="relatedResourceName"
-                :related-resource-id="relatedResourceId"
-                :via-resource="viaResource"
-                :via-resource-id="viaResourceId"
-                :via-relationship="viaRelationship"
+                    ref="fields"
+                    @hook:mounted="registerItSelf(index)"
+                    :is="'form-' + field.component"
+                    :resource-name="resourceName"
+                    :resource-id="resourceId"
+                    :field="field"
+                    :errors="errors"
+                    :related-resource-name="relatedResourceName"
+                    :related-resource-id="relatedResourceId"
+                    :via-resource="viaResource"
+                    :via-resource-id="viaResourceId"
+                    :via-relationship="viaRelationship"
             />
 
         </div>
@@ -28,7 +27,7 @@
 
 <script>
 
-    import {FormField, HandlesValidationErrors} from 'laravel-nova'
+    import { FormField, HandlesValidationErrors } from 'laravel-nova'
     import logipar from 'logipar'
 
     const valueBag = {}
@@ -37,7 +36,7 @@
 
         name: 'ConditionalContainer',
 
-        mixins: [FormField, HandlesValidationErrors],
+        mixins: [ FormField, HandlesValidationErrors ],
 
         props: [
             'field',
@@ -53,15 +52,7 @@
         data() {
 
             return {
-                resolvers: this.field.expressions.map(expression => {
-
-                    const parser = new logipar.Logipar()
-
-                    parser.parse(expression)
-
-                    return parser.filterFunction(this.relationalOperatorLeafResolver)
-
-                }),
+                resolvers: this.createResolvers(),
                 conditionSatisfied: false,
                 operators: [
                     '>=', '<=', '<', '>',
@@ -72,6 +63,40 @@
                     'boolean ', 'truthy'
                 ]
             }
+        },
+
+        created() {
+
+            const prefix = this.$parent.group.key
+            const fields = this.$parent.group.fields
+            const containers = fields.filter(field => field.component === 'conditional-container')
+
+            for (const container of containers) {
+
+                for (const field of fields) {
+
+                    const cleanAttribute = field.attribute.replace(`${ prefix }__`, '')
+
+                    if (container.expressionsMap.join().includes(cleanAttribute)) {
+
+                        const component = this.findComponentByAttribute(field.attribute, this.$parent.$children)
+
+                        if (component) {
+
+                            this.registerWatcherForFlexible(field.attribute, component)
+
+                            this.resolvers = this.createResolvers(
+                                container.expressions.map(string => string.replace(cleanAttribute, field.attribute))
+                            )
+
+                        }
+
+                    }
+
+                }
+
+            }
+
         },
 
         mounted() {
@@ -88,6 +113,13 @@
         },
 
         computed: {
+            fields() {
+
+                const [ prefix, suffix ] = this.fieldAttribute.split('conditional_container')
+
+                return this.field.fields.map(field => (field.attribute = prefix + field.attribute + suffix, field))
+
+            },
             watchableAttributes() {
 
                 return this.field.expressionsMap.join()
@@ -116,11 +148,31 @@
 
         methods: {
 
+            createResolvers(expressions = this.field.expressions) {
+
+                return expressions.map(expression => {
+
+                    const parser = new logipar.Logipar()
+
+                    parser.parse(expression)
+
+                    return parser.filterFunction(this.relationalOperatorLeafResolver)
+
+                })
+
+            },
+
             deepSearch(children) {
 
                 if (children) {
 
                     for (const child of children) {
+
+                        if (child.field && child.field.component === 'nova-flexible-content') {
+
+                            continue
+
+                        }
 
                         if (child.field && child.field.component !== 'conditional-container') {
 
@@ -138,27 +190,73 @@
 
             checkResolver() {
 
-                this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(valueBag))
+                this.conditionSatisfied = this.resolvers[ this.field.operation ](resolver => resolver(valueBag))
 
             },
 
             registerItSelf(index) {
 
-                this.registerDependencyWatchers(this.$refs.fields[index])
+                this.registerDependencyWatchers(this.$refs.fields[ index ])
 
             },
 
             relationalOperatorLeafResolver(values, literal) {
 
-                const [attribute, operator, value] = this.splitLiteral(literal)
+                const [ attribute, operator, value ] = this.splitLiteral(literal)
 
                 if (values.hasOwnProperty(attribute)) {
 
-                    return this.executeCondition(values[attribute], operator, value)
+                    return this.executeCondition(values[ attribute ], operator, value)
 
                 }
 
                 return false
+
+            },
+
+            findComponentByAttribute(attribute, children = this.$root.$children) {
+
+                if (children) {
+
+                    for (const child of children) {
+
+                        if (child.field && child.field.attribute === attribute) {
+
+                            return child
+
+                        }
+
+                        const found = this.findComponentByAttribute(attribute, child.$children)
+
+                        if (found) {
+
+                            return found
+
+                        }
+
+                    }
+
+                }
+
+            },
+
+            registerWatcherForFlexible(attribute, component) {
+
+                const watchableAttribute = this.findWatchableComponentAttribute(component)
+
+                /**
+                 * Initialize bag with initial value
+                 */
+                this.setBagValue(component, attribute, component[ watchableAttribute ])
+
+                component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
+                component.$watch(watchableAttribute, value => {
+
+                    console.log(attribute, 'changed')
+
+                    this.setBagValue(component, attribute, value)
+
+                })
 
             },
 
@@ -171,15 +269,7 @@
                  */
                 if (this.watchableAttributes.includes(attribute) && !valueBag.hasOwnProperty(attribute)) {
 
-                    const watchableAttribute = this.findWatchableComponentAttribute(component)
-
-                    /**
-                     * Initialize bag with initial value
-                     */
-                    this.setBagValue(component, attribute, component[watchableAttribute])
-
-                    component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
-                    component.$watch(watchableAttribute, value => this.setBagValue(component, attribute, value))
+                    this.registerWatcherForFlexible(attribute, component)
 
                 }
 
@@ -187,7 +277,7 @@
 
             setBagValue(component, attribute, value) {
 
-                valueBag[attribute] = this.parseComponentValue(component, value)
+                valueBag[ attribute ] = this.parseComponentValue(component, value)
 
                 this.$root.$emit('update-conditional-container')
 
@@ -195,7 +285,7 @@
 
             deleteBagAttribute(attribute) {
 
-                delete valueBag[attribute]
+                delete valueBag[ attribute ]
 
                 this.$root.$emit('update-conditional-container')
 
@@ -203,7 +293,7 @@
 
             splitLiteral(literal) {
 
-                const operator = this.operators.find(operator => literal.includes(` ${operator} `))
+                const operator = this.operators.find(operator => literal.includes(` ${ operator } `))
 
                 if (!operator) {
 
@@ -225,7 +315,7 @@
 
                 conditionValue = conditionValue.replace(/^["'](.+)["']$/, '$1')
 
-                if (['<', '>', '<=', '>='].includes(operator) && conditionValue) {
+                if ([ '<', '>', '<=', '>=' ].includes(operator) && conditionValue) {
 
                     attributeValue = parseInt(attributeValue)
                     conditionValue = parseInt(conditionValue)
@@ -238,7 +328,7 @@
 
                 }
 
-                if (['true', 'false'].includes(conditionValue)) {
+                if ([ 'true', 'false' ].includes(conditionValue)) {
 
                     conditionValue = conditionValue === 'true'
 
@@ -290,7 +380,7 @@
                         return JSON.parse(value || '[]')
 
                     case 'BelongsToManyField':
-                        return (value || []).map(({id}) => id)
+                        return (value || []).map(({ id }) => id)
 
                 }
 

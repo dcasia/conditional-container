@@ -2,6 +2,8 @@
 
 namespace DigitalCreative\ConditionalContainer;
 
+use Benjacho\BelongsToManyField\BelongsToManyField;
+use Closure;
 use Illuminate\Http\Resources\MergeValue;
 use Illuminate\Support\Collection;
 use Laravel\Nova\Contracts\RelatableField;
@@ -20,6 +22,10 @@ use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Laravel\Nova\Panel;
+use NovaAttachMany\AttachMany;
+use Whitecube\NovaFlexibleContent\Flexible;
+use Whitecube\NovaFlexibleContent\Layouts\Collection as LayoutCollection;
+use Whitecube\NovaFlexibleContent\Layouts\Layout;
 
 trait HasConditionalContainer
 {
@@ -103,6 +109,9 @@ trait HasConditionalContainer
 
             $fields = parent::availableFields($request);
             $containers = $this->findAllContainers($fields);
+
+            $this->findAllFlexibleContentFields($fields);
+
             $expressionsMap = $containers->flatMap->expressions;
 
             $cleanUpMethodName = $controller instanceof UpdateFieldController ?
@@ -142,6 +151,13 @@ trait HasConditionalContainer
         $allFields = $this->fields($request);
         $containers = $this->findAllContainers($allFields);
         $expressionsMap = $containers->flatMap->expressions;
+        $flexibleContent = $this->findAllFlexibleContentFields($allFields);
+
+        if ($flexibleContent->isNotEmpty()) {
+
+            $this->registerFlexibleMacros($request, $flexibleContent);
+
+        }
 
         $fields = $this->flattenDependencies(
             $request, $this->preloadRelationships($expressionsMap, $allFields)
@@ -149,6 +165,114 @@ trait HasConditionalContainer
 
         return new FieldCollection(array_values($this->filter($fields->toArray())));
 
+    }
+
+    private function registerFlexibleMacros(NovaRequest $request, Collection $flexibleContent)
+    {
+
+        /** @var NovaRequest $fakeRequest */
+        $fakeRequest = $request;
+
+        foreach ($flexibleContent as $field) {
+
+            $field::macro('generateFieldName', function (array $fields) {
+
+                return collect($fields)->pluck('attribute')->join('.');
+
+            });
+
+            $field::macro('resolveFlexibleGroups', function ($flattenDependencies) use ($fakeRequest) {
+
+                /**
+                 * Clone groups using a filtered version of the available fields
+                 */
+                return $this->groups->filter()->map(function (Layout $layout) use ($flattenDependencies, $fakeRequest) {
+
+                    $fields = $flattenDependencies(
+                        $fakeRequest, $layout->fields(), $layout->attributesToArray()
+                    )->map(function ($field) {
+                        return clone $field;
+                    });
+
+                    $name = $this->generateFieldName($fields->toArray());
+
+                    return new Layout(
+                        $layout->title(),
+                        $name,
+                        $fields,
+                        $layout->key(),
+                        $layout->getAttributes()
+                    );
+
+                });
+
+            });
+
+            $field::macro('resolveForValidation', function ($flattenDependencies, Flexible $field) use ($fakeRequest) {
+
+                $this->groups = collect();
+
+                $this->syncAndFillGroups($fakeRequest, $this->attribute);
+
+                $this->groups = $this->resolveFlexibleGroups($flattenDependencies);
+
+                $bag = collect($fakeRequest->input($this->attribute))->keyBy('key');
+
+                foreach ($this->groups as $group) {
+
+                    $key = $group->key();
+                    $currentValue = $bag->get($key);
+                    $bag->offsetSet($group->key(), array_merge($currentValue, [ 'layout' => $group->name() ]));
+
+                }
+
+                $fakeRequest->merge([ $this->attribute => $bag->values()->toArray() ]);
+
+                $this->layouts = LayoutCollection::make($this->groups);
+
+            });
+
+            $field::macro('resolveConditionalContainer', function ($flattenDependencies) use ($fakeRequest) {
+
+                /**
+                 * Clone groups using a filtered version of the available fields
+                 */
+                $groups = $this->resolveFlexibleGroups($flattenDependencies);
+
+                /**
+                 * Rename the layouts instances by composing the names of all the available fields
+                 */
+                $layouts = LayoutCollection::make($groups)
+                                           ->map(function (Layout $layout) {
+
+                                               $name = $this->generateFieldName($layout->fields());
+                                               $layout->setAttribute('__conditional_name__', $name);
+
+                                               return new Layout(
+                                                   $layout->title(),
+                                                   $name,
+                                                   $layout->fields(),
+                                                   $layout->key(),
+                                                   $layout->getAttributes()
+                                               );
+
+                                           })
+                                           ->unique('__conditional_name__');
+
+                $value = $this->resolveGroups($groups)->map(function (array $layout) {
+
+                    $layout[ 'layout' ] = $this->generateFieldName($layout[ 'attributes' ]);
+
+                    return $layout;
+
+                });
+
+                $this->withMeta([ 'value' => $value->values() ]);
+                $this->withMeta([ 'layouts' => $layouts->values() ]);
+
+            });
+
+        }
     }
 
     private function preloadRelationships(Collection $expressionsMap, $fields)
@@ -159,8 +283,8 @@ trait HasConditionalContainer
         foreach ($fields as $field) {
 
             if ($field instanceof RelatableField ||
-                $field instanceof \NovaAttachMany\AttachMany ||
-                $field instanceof \Benjacho\BelongsToManyField\BelongsToManyField) {
+                $field instanceof AttachMany ||
+                $field instanceof BelongsToManyField) {
 
                 $relations->push($field->attribute);
 
@@ -189,14 +313,16 @@ trait HasConditionalContainer
 
     }
 
-    private function flattenDependencies(NovaRequest $request, array $fields)
+    private function flattenDependencies(NovaRequest $request, array $fields, array $resource = null)
     {
 
         $controller = $request->route()->controller;
         $fields = collect($fields);
+        $resource = is_array($resource) ? collect($resource) : $this;
 
         if ($fields->whereInstanceOf(ConditionalContainer::class)->isEmpty() &&
-            $fields->whereInstanceOf(MergeValue::class)->isEmpty()) {
+            $fields->whereInstanceOf(MergeValue::class)->isEmpty() &&
+            $fields->whereInstanceOf(Flexible::class)->isEmpty()) {
 
             return $fields;
 
@@ -204,11 +330,33 @@ trait HasConditionalContainer
 
         $fakeRequest = $request->duplicate();
 
-        return $fields->flatMap(function ($field) use ($fields, $fakeRequest, $controller) {
+        return $fields->flatMap(function ($field) use ($fields, $fakeRequest, $controller, $resource) {
 
             if ($field instanceof Field) {
 
                 $this->parseThirdPartyPackageFieldValue($field, $fakeRequest);
+
+            }
+
+            if ($field instanceof Flexible) {
+
+                if ($controller instanceof ResourceUpdateController) {
+
+//                    $field->resolveForValidation(
+//                        Closure::fromCallable([ $this, 'flattenDependencies' ]), $field
+//                    );
+
+                } else {
+
+                    $field->resolve($this);
+
+                    $field->resolveConditionalContainer(
+                        Closure::fromCallable([ $this, 'flattenDependencies' ])
+                    );
+
+                }
+
+                return [ $field ];
 
             }
 
@@ -221,8 +369,7 @@ trait HasConditionalContainer
                 /*
                  * If instance of any associative type flatten out all the fields
                  */
-                if (
-                    $controller instanceof AssociatableController ||
+                if ($controller instanceof AssociatableController ||
                     $controller instanceof AttachableController ||
                     $controller instanceof MorphableController ||
                     $controller instanceof ResourceAttachController ||
@@ -235,13 +382,13 @@ trait HasConditionalContainer
                 if ($controller instanceof ResourceUpdateController ||
                     $controller instanceof ResourceStoreController) {
 
-                    return $this->flattenDependencies(
-                        $fakeRequest, $field->resolveDependencyFieldUsingRequest($this, $fakeRequest)
-                    );
+//                    return $this->flattenDependencies(
+//                        $fakeRequest, $field->resolveDependencyFieldUsingRequest($this, $fakeRequest)
+//                    );
 
                 }
 
-                return $this->flattenDependencies($fakeRequest, $field->resolveDependencyFieldUsingResource($this));
+                return $this->flattenDependencies($fakeRequest, $field->resolveDependencyFieldUsingResource($resource));
 
             }
 
@@ -268,7 +415,7 @@ trait HasConditionalContainer
 
         $value = $request->get($field->attribute);
 
-        if ($field instanceof \Benjacho\BelongsToManyField\BelongsToManyField) {
+        if ($field instanceof BelongsToManyField) {
 
             $request->offsetSet(
                 $field->attribute, collect(json_decode($value, true))->map->id
@@ -276,7 +423,7 @@ trait HasConditionalContainer
 
         }
 
-        if ($field instanceof \NovaAttachMany\AttachMany) {
+        if ($field instanceof AttachMany) {
 
             $request->offsetSet(
                 $field->attribute, collect(json_decode($value, true))
@@ -295,6 +442,48 @@ trait HasConditionalContainer
                     ->values();
     }
 
+    private function findAllFlexibleContentFields($fields): Collection
+    {
+        return collect($fields)
+            ->flatMap(function ($field) {
+
+                if ($field instanceof Flexible) {
+
+                    return $this->findAllFlexibleContentFields($field->meta[ 'layouts' ]->flatMap->fields())->concat([ $field ]);
+
+                }
+
+                if ($field instanceof ConditionalContainer) {
+
+                    return $this->findAllFlexibleContentFields($field->fields);
+
+                }
+
+            })
+            ->filter()
+            ->each(function (Flexible $flexible) {
+
+                collect($flexible->meta[ 'layouts' ]->flatMap->fields())->each(function ($field) {
+
+                    if ($field instanceof ConditionalContainer) {
+
+                        $field->fields->each(function ($field) {
+
+                            if (method_exists($field, 'withMeta')) {
+
+                                $field->withMeta([ '__has_flexible_field__' => true ]);
+
+                            }
+
+                        });
+
+                    }
+
+                });
+
+            });
+    }
+
     private function findAllContainers($fields): Collection
     {
         return collect($fields)
@@ -309,6 +498,14 @@ trait HasConditionalContainer
                 if ($field instanceof MergeValue) {
 
                     return $this->findAllContainers($field->data);
+
+                }
+
+                if ($field instanceof Flexible) {
+
+                    return $this->findAllContainers(
+                        $field->meta[ 'layouts' ]->flatMap->fields()
+                    );
 
                 }
 

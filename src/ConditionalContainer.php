@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Nova\Contracts\RelatableField;
-use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Laravel\Nova\Resource;
 use logipar\Logipar;
+use Whitecube\NovaFlexibleContent\Flexible;
 
 class ConditionalContainer extends Field
 {
@@ -53,7 +53,7 @@ class ConditionalContainer extends Field
     public function __construct(array $fields)
     {
 
-        parent::__construct('conditional_container_' . Str::random(10));
+        parent::__construct('conditional_container');
 
         $this->fields = collect($fields);
         $this->expressions = collect();
@@ -86,13 +86,26 @@ class ConditionalContainer extends Field
     {
 
         /**
+         * Clone everything before resolving to avoid fields being mutated when nested in some sort of repeating wrapper
+         */
+        $this->fields = $this->fields->map(function ($field) {
+
+            return clone $field;
+
+        });
+
+        /**
          * Avoid unselected fields coming with pre-filled data on update
          */
         if (resolve(NovaRequest::class)->route()->controller instanceof UpdateFieldController) {
 
-            if (count($this->resolveDependencyFieldUsingResource($resource)) === 0) {
+            if ($this->fields->pluck('meta.__has_flexible_field__')->filter()->isNotEmpty() === false) {
 
-                return;
+                if (count($this->resolveDependencyFieldUsingResource($resource)) === 0) {
+
+                    return;
+
+                }
 
             }
 
@@ -290,7 +303,7 @@ class ConditionalContainer extends Field
                     !blank($field->attribute) &&
                     !$field->isReadonly($request) &&
                     !$field instanceof RelatableField &&
-                    !$field instanceof \Whitecube\NovaFlexibleContent\Flexible) {
+                    !$field instanceof Flexible) {
 
                     $resource->setAttribute($field->attribute, $field->value);
 
@@ -329,6 +342,12 @@ class ConditionalContainer extends Field
     {
 
         $data = collect($resource->toArray());
+
+        if (!method_exists($resource, 'getRelations')) {
+
+            return $data;
+
+        }
 
         foreach ($resource->getRelations() as $relationName => $relation) {
 
