@@ -178,35 +178,6 @@ operation will be considered truthy, if you want to execute an `AND` operation i
                         ->if('reason truthy false'),
 ]
 ```
-## Notes
-
-While inspired by [nova-dependency-container](https://github.com/epartment/nova-dependency-container), 
-ConditionalContainer takes a different approach to solve somewhat the same problem. 
-However, you can expect no issues with any third-party package at all!! as the way it was implemented 
-tries to be the least intrusive as possible.
-
-However it hasn't yet been battle-tested against every use case out there but my own, so if you find any issue 
-please let us know or if you know how to fix it don't hesitate to submit a PR :)
-
-## Roadmap
-
-- [x] Add more operators such as `between`, `contains`, `startWith / endWith`, `length` etc..
-- [x] Add Support for depending on a field that is within another ConditionalContainer, example:
-
-```php
-[
-    Text::make('A'),
-  
-    ConditionalContainer::make([ Text::make('B') ])->if('a === foo') // Works!
-    ConditionalContainer::make([ Text::make('C') ])->if('b === foo') // Doesnt work!
-    ConditionalContainer::make([ 
-        Text::make('D'),
-        ConditionalContainer::make([ Text::make('E') ])->if('d === foo') // Works!
-    ])->if('a === foo')
-    
-    // currently it's not possible to depend on a field that is within a ConditionalContainer as seen on the second ConditionalContainer above
-]
-```
 
 ## License
 
