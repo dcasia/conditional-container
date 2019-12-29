@@ -103,7 +103,9 @@ trait HasConditionalContainer
 
             $fields = parent::availableFields($request);
             $containers = $this->findAllContainers($fields);
-            $expressionsMap = $containers->flatMap->expressions;
+            $expressionsMap = $containers->flatMap->expressions->map(function ($expression) {
+                return is_callable($expression) ? $expression() : $expression;
+            });
 
             $cleanUpMethodName = $controller instanceof UpdateFieldController ?
                 'removeNonUpdateFields' :
@@ -141,7 +143,9 @@ trait HasConditionalContainer
 
         $allFields = $this->fields($request);
         $containers = $this->findAllContainers($allFields);
-        $expressionsMap = $containers->flatMap->expressions;
+        $expressionsMap = $containers->flatMap->expressions->map(function ($expression) {
+            return is_callable($expression) ? $expression() : $expression;
+        });
 
         $fields = $this->flattenDependencies(
             $request, $this->preloadRelationships($expressionsMap, $allFields)

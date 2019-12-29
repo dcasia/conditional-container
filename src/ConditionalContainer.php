@@ -69,7 +69,7 @@ class ConditionalContainer extends Field
         return $this;
     }
 
-    public function orIf(string $expression): self
+    public function orIf($expression): self
     {
         return $this->if($expression);
     }
