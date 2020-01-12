@@ -453,6 +453,12 @@ trait HasConditionalContainer
 
                 }
 
+                if ($field instanceof MergeValue) {
+
+                    return $this->findAllFlexibleContentFields($field->data);
+
+                }
+
                 if ($field instanceof ConditionalContainer) {
 
                     return $this->findAllFlexibleContentFields($field->fields);
