@@ -69,13 +69,19 @@
 
             const prefix = this.$parent.group.key
             const fields = this.$parent.group.fields
-            const containers = fields.filter(field => field.component === 'conditional-container')
+            const containers = fields.filter(field => field.attribute === this.field.attribute)
 
             for (const container of containers) {
 
                 for (const field of fields) {
 
                     const cleanAttribute = field.attribute.replace(`${ prefix }__`, '')
+
+                    if (!Array.isArray(container.expressionsMap)) {
+
+                        console.log('You probably forgot to include the "HasContainerTrait" into your nova resource.')
+
+                    }
 
                     if (container.expressionsMap.join().includes(cleanAttribute)) {
 
@@ -117,7 +123,7 @@
 
                 const [ prefix, suffix ] = this.fieldAttribute.split('conditional_container')
 
-                return this.field.fields.map(field => (field.attribute = prefix + field.attribute + suffix, field))
+                return this.field.fields.map(field => (field.attribute = prefix + field.attribute, field))
 
             },
             watchableAttributes() {
@@ -252,7 +258,7 @@
                 component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
                 component.$watch(watchableAttribute, value => {
 
-                    console.log(attribute, 'changed')
+                    // console.log(attribute, 'changed')
 
                     this.setBagValue(component, attribute, value)
 

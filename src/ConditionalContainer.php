@@ -36,7 +36,7 @@ class ConditionalContainer extends Field
     /**
      * @var Collection
      */
-    const OPERATORS = [
+    public const OPERATORS = [
         '>=', '<=', '<', '>',
         '!==', '!=',
         '===', '==', '=',
@@ -53,10 +53,10 @@ class ConditionalContainer extends Field
     public function __construct(array $fields)
     {
 
-        parent::__construct('conditional_container');
-
         $this->fields = collect($fields);
         $this->expressions = collect();
+
+        parent::__construct('conditional_container_' . md5($this->fields->whereInstanceOf(Field::class)->pluck('attribute')->join('.')));
 
         $this->withMeta([ 'operation' => 'some' ]);
 
@@ -88,7 +88,7 @@ class ConditionalContainer extends Field
         /**
          * Clone everything before resolving to avoid fields being mutated when nested in some sort of repeating wrapper
          */
-        $this->fields = $this->fields->map(function ($field) {
+        $this->fields = $this->fields->map(static function ($field) {
 
             return clone $field;
 
@@ -136,13 +136,13 @@ class ConditionalContainer extends Field
 
         }
 
-        return function () use ($callbacks) {
+        return static function () use ($callbacks) {
 
             foreach ($callbacks as $callback) {
 
                 if (is_callable($callback)) {
 
-                    call_user_func($callback);
+                    $callback();
 
                 }
 
@@ -160,7 +160,7 @@ class ConditionalContainer extends Field
     private function relationalOperatorLeafResolver(Collection $values, string $literal): bool
     {
 
-        [ $attribute, $operator, $value ] = $this->splitLiteral($literal);
+        [ $attribute, $operator, $value ] = self::splitLiteral($literal);
 
         if ($values->keys()->contains($attribute)) {
 
@@ -177,8 +177,8 @@ class ConditionalContainer extends Field
 
         $conditionValue = trim($conditionValue, '"\'');
 
-        if (in_array($operator, [ '<', '>', '<=', '>=' ]) && $conditionValue ||
-            (is_numeric($attributeValue) && is_numeric($conditionValue))) {
+        if ((is_numeric($attributeValue) && is_numeric($conditionValue)) ||
+            (in_array($operator, [ '<', '>', '<=', '>=' ]) && $conditionValue)) {
 
             $conditionValue = (int) $conditionValue;
             $attributeValue = (int) $attributeValue;
@@ -244,12 +244,12 @@ class ConditionalContainer extends Field
     {
 
         $operator = collect(self::OPERATORS)
-            ->filter(function ($operator) use ($literal) {
+            ->filter(static function ($operator) use ($literal) {
                 return strpos($literal, $operator) !== false;
             })
             ->first();
 
-        [ $attribute, $value ] = collect(explode($operator, $literal))->map(function ($value) {
+        [ $attribute, $value ] = collect(explode($operator, $literal))->map(static function ($value) {
             return trim($value);
         });
 
@@ -300,10 +300,10 @@ class ConditionalContainer extends Field
             foreach ($this->fields as $field) {
 
                 if ($field instanceof Field &&
-                    !blank($field->attribute) &&
-                    !$field->isReadonly($request) &&
+                    !$field instanceof Flexible &&
                     !$field instanceof RelatableField &&
-                    !$field instanceof Flexible) {
+                    !blank($field->attribute) &&
+                    !$field->isReadonly($request)) {
 
                     $resource->setAttribute($field->attribute, $field->value);
 
@@ -371,7 +371,7 @@ class ConditionalContainer extends Field
     {
         return array_merge([
             'fields' => $this->fields,
-            'expressions' => $this->expressions->map(function ($expression) {
+            'expressions' => $this->expressions->map(static function ($expression) {
 
                 return is_callable($expression) ? $expression() : $expression;
 
