@@ -95,7 +95,7 @@ class ConditionalContainer extends Field
         });
 
         /**
-         * Avoid unselected fields coming with pre-filled data on update
+         * Avoid unselected fields coming with pre-filled data on update when using a flexible field
          */
         if (resolve(NovaRequest::class)->route()->controller instanceof UpdateFieldController) {
 

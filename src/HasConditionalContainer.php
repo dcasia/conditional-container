@@ -78,7 +78,7 @@ trait HasConditionalContainer
     private function mergePanels(array $panels, Collection $containers): array
     {
         return $containers
-            ->flatMap(function ($container) {
+            ->flatMap(static function ($container) {
                 return $container->fields->whereInstanceOf(Panel::class);
             })
             ->prepend($panels)
@@ -96,7 +96,7 @@ trait HasConditionalContainer
          */
         if ($controller instanceof ResourceIndexController) {
 
-            return parent::availableFields($request)->filter(function ($field) {
+            return parent::availableFields($request)->filter(static function ($field) {
 
                 return !($field instanceof ConditionalContainer);
 
@@ -175,7 +175,7 @@ trait HasConditionalContainer
 
         foreach ($flexibleContent as $field) {
 
-            $field::macro('generateFieldName', function (array $fields) {
+            $field::macro('generateFieldName', static function (array $fields) {
 
                 return collect($fields)->pluck('attribute')->join('.');
 
@@ -190,7 +190,7 @@ trait HasConditionalContainer
 
                     $fields = $flattenDependencies(
                         $fakeRequest, $layout->fields(), $layout->attributesToArray()
-                    )->map(function ($field) {
+                    )->map(static function ($field) {
                         return clone $field;
                     });
 
@@ -292,14 +292,14 @@ trait HasConditionalContainer
 
         }
 
-        $expressionsMap = $expressionsMap->map(function (string $expression) {
+        $expressionsMap = $expressionsMap->map(static function (string $expression) {
             return ConditionalContainer::splitLiteral($expression)[ 0 ];
         });
 
         /**
          * Only load the relations that are necessary
          */
-        $relations = $relations->filter(function ($relation) use ($expressionsMap) {
+        $relations = $relations->filter(static function ($relation) use ($expressionsMap) {
             return $expressionsMap->contains($relation);
         });
 
@@ -362,7 +362,7 @@ trait HasConditionalContainer
 
             if ($field instanceof ConditionalContainer) {
 
-                $field->fields->each(function ($container) use ($field) {
+                $field->fields->each(static function ($container) use ($field) {
                     $container->panel = $field->panel;
                 });
 
@@ -382,9 +382,9 @@ trait HasConditionalContainer
                 if ($controller instanceof ResourceUpdateController ||
                     $controller instanceof ResourceStoreController) {
 
-//                    return $this->flattenDependencies(
-//                        $fakeRequest, $field->resolveDependencyFieldUsingRequest($this, $fakeRequest)
-//                    );
+                    return $this->flattenDependencies(
+                        $fakeRequest, $field->resolveDependencyFieldUsingRequest($this, $fakeRequest)
+                    );
 
                 }
 
@@ -436,7 +436,7 @@ trait HasConditionalContainer
     private function findAllActiveContainers(Collection $fields, $resource): Collection
     {
         return $this->findAllContainers($fields)
-                    ->filter(function ($container) use ($resource) {
+                    ->filter(static function ($container) use ($resource) {
                         return $container->runConditions(collect($resource->toArray()));
                     })
                     ->values();
@@ -461,13 +461,16 @@ trait HasConditionalContainer
 
             })
             ->filter()
-            ->each(function (Flexible $flexible) {
+            ->each(static function (Flexible $flexible) {
 
-                collect($flexible->meta[ 'layouts' ]->flatMap->fields())->each(function ($field) {
+                collect($flexible->meta[ 'layouts' ]->flatMap->fields())->each(static function ($field) {
+
 
                     if ($field instanceof ConditionalContainer) {
 
-                        $field->fields->each(function ($field) {
+                        $field->withMeta([ '__uses_flexible_field__' => true ]);
+
+                        $field->fields->each(static function ($field) {
 
                             if (method_exists($field, 'withMeta')) {
 
@@ -514,9 +517,9 @@ trait HasConditionalContainer
             /**
              * Pass all meta to it's $fields
              */
-            ->each(function (ConditionalContainer $conditionalContainer) {
+            ->each(static function (ConditionalContainer $conditionalContainer) {
 
-                $conditionalContainer->fields->each(function ($field) use ($conditionalContainer) {
+                $conditionalContainer->fields->each(static function ($field) use ($conditionalContainer) {
 
                     if (method_exists($field, 'withMeta')) {
 

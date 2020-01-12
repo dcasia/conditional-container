@@ -5,18 +5,18 @@
         <div v-for="(field, index) in fields" :key="index">
 
             <component
-                    ref="fields"
-                    @hook:mounted="registerItSelf(index)"
-                    :is="'form-' + field.component"
-                    :resource-name="resourceName"
-                    :resource-id="resourceId"
-                    :field="field"
-                    :errors="errors"
-                    :related-resource-name="relatedResourceName"
-                    :related-resource-id="relatedResourceId"
-                    :via-resource="viaResource"
-                    :via-resource-id="viaResourceId"
-                    :via-relationship="viaRelationship"
+                ref="fields"
+                @hook:mounted="registerItSelf(index)"
+                :is="'form-' + field.component"
+                :resource-name="resourceName"
+                :resource-id="resourceId"
+                :field="field"
+                :errors="errors"
+                :related-resource-name="relatedResourceName"
+                :related-resource-id="relatedResourceId"
+                :via-resource="viaResource"
+                :via-resource-id="viaResourceId"
+                :via-relationship="viaRelationship"
             />
 
         </div>
@@ -67,39 +67,12 @@
 
         created() {
 
-            const prefix = this.$parent.group.key
-            const fields = this.$parent.group.fields
-            const containers = fields.filter(field => field.attribute === this.field.attribute)
+            /**
+             * Initialize flexible field only if its used
+             */
+            if (this.field.__uses_flexible_field__) {
 
-            for (const container of containers) {
-
-                for (const field of fields) {
-
-                    const cleanAttribute = field.attribute.replace(`${ prefix }__`, '')
-
-                    if (!Array.isArray(container.expressionsMap)) {
-
-                        console.log('You probably forgot to include the "HasContainerTrait" into your nova resource.')
-
-                    }
-
-                    if (container.expressionsMap.join().includes(cleanAttribute)) {
-
-                        const component = this.findComponentByAttribute(field.attribute, this.$parent.$children)
-
-                        if (component) {
-
-                            this.registerWatcherForFlexible(field.attribute, component)
-
-                            this.resolvers = this.createResolvers(
-                                container.expressions.map(string => string.replace(cleanAttribute, field.attribute))
-                            )
-
-                        }
-
-                    }
-
-                }
+                this.initFlexibleField()
 
             }
 
@@ -123,7 +96,7 @@
 
                 const [ prefix, suffix ] = this.fieldAttribute.split('conditional_container')
 
-                return this.field.fields.map(field => (field.attribute = prefix + field.attribute, field))
+                return this.field.fields.map(field => ( field.attribute = prefix + field.attribute, field ))
 
             },
             watchableAttributes() {
@@ -153,6 +126,46 @@
         },
 
         methods: {
+
+            initFlexibleField() {
+
+                const prefix = this.$parent.group.key
+                const fields = this.$parent.group.fields
+                const containers = fields.filter(field => field.attribute === this.field.attribute)
+
+                for (const container of containers) {
+
+                    for (const field of fields) {
+
+                        const cleanAttribute = field.attribute.replace(`${ prefix }__`, '')
+
+                        if (!Array.isArray(container.expressionsMap)) {
+
+                            console.log('You have probably forgotten to include the "HasContainerTrait" into your nova resource.')
+
+                        }
+
+                        if (container.expressionsMap.join().includes(cleanAttribute)) {
+
+                            const component = this.findComponentByAttribute(field.attribute, this.$parent.$children)
+
+                            if (component) {
+
+                                this.registerWatcher(field.attribute, component)
+
+                                this.resolvers = this.createResolvers(
+                                    container.expressions.map(string => string.replace(cleanAttribute, field.attribute))
+                                )
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            },
 
             createResolvers(expressions = this.field.expressions) {
 
@@ -246,7 +259,7 @@
 
             },
 
-            registerWatcherForFlexible(attribute, component) {
+            registerWatcher(attribute, component) {
 
                 const watchableAttribute = this.findWatchableComponentAttribute(component)
 
@@ -256,13 +269,7 @@
                 this.setBagValue(component, attribute, component[ watchableAttribute ])
 
                 component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
-                component.$watch(watchableAttribute, value => {
-
-                    // console.log(attribute, 'changed')
-
-                    this.setBagValue(component, attribute, value)
-
-                })
+                component.$watch(watchableAttribute, value => this.setBagValue(component, attribute, value))
 
             },
 
@@ -275,7 +282,7 @@
                  */
                 if (this.watchableAttributes.includes(attribute) && !valueBag.hasOwnProperty(attribute)) {
 
-                    this.registerWatcherForFlexible(attribute, component)
+                    this.registerWatcher(attribute, component)
 
                 }
 
@@ -386,7 +393,7 @@
                         return JSON.parse(value || '[]')
 
                     case 'BelongsToManyField':
-                        return (value || []).map(({ id }) => id)
+                        return ( value || [] ).map(({ id }) => id)
 
                 }
 
