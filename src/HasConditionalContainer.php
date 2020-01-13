@@ -175,7 +175,7 @@ trait HasConditionalContainer
 
         foreach ($flexibleContent as $field) {
 
-            $field::macro('generateFieldName', static function (array $fields) {
+            $field::macro('generateFieldName', function (array $fields) {
 
                 return collect($fields)->pluck('attribute')->join('.');
 
