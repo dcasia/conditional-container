@@ -110,9 +110,25 @@ trait HasConditionalContainer
             $fields = parent::availableFields($request);
             $containers = $this->findAllContainers($fields);
 
-            $this->findAllFlexibleContentFields($fields);
-
+            $flexibleFields = $this->findAllFlexibleContentFields($fields);
             $expressionsMap = $containers->flatMap->expressions;
+
+            if ($flexibleFields->isNotEmpty()) {
+
+                $clonedFlexibleFields = $this->injectMetaIntoFields($flexibleFields, $expressionsMap);
+
+                foreach ($fields as $index => $field) {
+
+                    if (($field instanceof Flexible) &&
+                        $match = $clonedFlexibleFields->firstWhere('attribute', $field->attribute)) {
+
+                        $fields->put($index, $match);
+
+                    }
+
+                }
+
+            }
 
             $cleanUpMethodName = $controller instanceof UpdateFieldController ?
                 'removeNonUpdateFields' :
@@ -164,6 +180,57 @@ trait HasConditionalContainer
         );
 
         return new FieldCollection(array_values($this->filter($fields->toArray())));
+
+    }
+
+    private function injectMetaIntoFields(Collection $flexibleContents, Collection $expressionsMap): Collection
+    {
+
+        return $flexibleContents->map(static function (Flexible $flexible) use ($expressionsMap) {
+
+            $clone = new Flexible($flexible->name, $flexible->attribute, $flexible->resolveCallback);
+
+            $flexible->meta[ 'layouts' ]
+                ->map(static function (Layout $field) use ($expressionsMap) {
+
+                    $fields = collect($field->fields())->map(static function ($field) use ($expressionsMap) {
+
+                        if ($field instanceof ConditionalContainer) {
+
+                            $field->withMeta([ '__uses_flexible_field__' => true ]);
+                            $field->withMeta([ 'expressionsMap' => $expressionsMap ]);
+
+                            $field->fields->each(static function ($field) {
+
+                                if (method_exists($field, 'withMeta')) {
+
+                                    $field->withMeta([ '__has_flexible_field__' => true ]);
+
+                                }
+
+                            });
+
+                        }
+
+                        return $field;
+
+                    });
+
+                    return new $field(
+                        $field->title(),
+                        $field->name(),
+                        $fields,
+                        $field->key(),
+                        $field->getAttributes());
+
+                })
+                ->each(static function (Layout $layout) use ($clone) {
+                    $clone->addLayout($layout);
+                });
+
+            return $clone;
+
+        });
 
     }
 
@@ -466,31 +533,7 @@ trait HasConditionalContainer
                 }
 
             })
-            ->filter()
-            ->each(static function (Flexible $flexible) {
-
-                collect($flexible->meta[ 'layouts' ]->flatMap->fields())->each(static function ($field) {
-
-
-                    if ($field instanceof ConditionalContainer) {
-
-                        $field->withMeta([ '__uses_flexible_field__' => true ]);
-
-                        $field->fields->each(static function ($field) {
-
-                            if (method_exists($field, 'withMeta')) {
-
-                                $field->withMeta([ '__has_flexible_field__' => true ]);
-
-                            }
-
-                        });
-
-                    }
-
-                });
-
-            });
+            ->filter();
     }
 
     private function findAllContainers($fields): Collection
