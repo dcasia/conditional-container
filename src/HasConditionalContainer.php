@@ -141,7 +141,8 @@ trait HasConditionalContainer
 
         }
 
-        $allFields = $this->fields($request);
+        $method = parent::fieldsMethod($request);
+        $allFields = $this->{$method}($request);
         $containers = $this->findAllContainers($allFields);
         $expressionsMap = $containers->flatMap->expressions->map(function ($expression) {
             return is_callable($expression) ? $expression() : $expression;
