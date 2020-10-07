@@ -20,6 +20,7 @@ use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Laravel\Nova\Panel;
+use Laravel\Nova\Resource;
 
 trait HasConditionalContainer
 {
@@ -28,12 +29,11 @@ trait HasConditionalContainer
      * Get the panels that are available for the given detail request.
      *
      * @param NovaRequest $request
-     *
      * @return array
      */
-    public function availablePanelsForDetail($request)
+    public function availablePanelsForDetail(NovaRequest $request, Resource $resource)
     {
-        $panels = parent::availablePanelsForDetail($request);
+        $panels = parent::availablePanelsForDetail($request, $resource);
         $fields = parent::availableFields($request);
 
         return $this->mergePanels($panels, $this->findAllActiveContainers($fields, $this));
@@ -61,7 +61,7 @@ trait HasConditionalContainer
      *
      * @return array
      */
-    public function availablePanelsForUpdate($request)
+    public function availablePanelsForUpdate(NovaRequest $request, Resource $resource = null)
     {
         $panels = parent::availablePanelsForUpdate($request);
         $fields = parent::availableFields($request);
