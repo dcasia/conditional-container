@@ -291,6 +291,7 @@ class ConditionalContainer extends Field
                     !$field->isReadonly($request) &&
                     !$field instanceof RelatableField &&
                     !$field instanceof \Whitecube\NovaFlexibleContent\Flexible &&
+                    !$field instanceof \Benjacho\BelongsToManyField\BelongsToManyField &&
                     !$field instanceof \DigitalCreative\ConditionalContainer\ConditionalContainer) {
 
                     $resource->setAttribute($field->attribute, $field->value);
