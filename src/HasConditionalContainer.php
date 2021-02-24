@@ -2,6 +2,7 @@
 
 namespace DigitalCreative\ConditionalContainer;
 
+use DigitalCreative\JsonWrapper\JsonWrapper;
 use Illuminate\Http\Resources\MergeValue;
 use Illuminate\Support\Collection;
 use Laravel\Nova\Contracts\RelatableField;
@@ -261,6 +262,12 @@ trait HasConditionalContainer
 
             }
 
+            if ($field instanceof JsonWrapper) {
+
+                return $this->flattenDependencies($fakeRequest, $field->fields);
+
+            }
+
             return [ $field ];
 
         });
@@ -319,6 +326,12 @@ trait HasConditionalContainer
                 if ($field instanceof MergeValue) {
 
                     return $this->findAllContainers($field->data);
+
+                }
+
+                if ($field instanceof JsonWrapper) {
+
+                    return $this->findAllContainers($field->fields);
 
                 }
 
