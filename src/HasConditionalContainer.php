@@ -25,6 +25,11 @@ use Laravel\Nova\Resource;
 trait HasConditionalContainer
 {
 
+    public function hasRelatableField(NovaRequest $request, $attribute)
+    {
+        return $this->availableFields($request)->whereInstanceOf(RelatableField::class);
+    }
+
     /**
      * Get the panels that are available for the given detail request.
      *

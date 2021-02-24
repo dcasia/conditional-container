@@ -18,6 +18,7 @@
                 :via-resource="viaResource"
                 :via-resource-id="viaResourceId"
                 :via-relationship="viaRelationship"
+                :show-help-text="childField.helpText != null"
             />
 
         </div>
