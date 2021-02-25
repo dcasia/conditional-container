@@ -264,7 +264,7 @@ trait HasConditionalContainer
 
             if ($field instanceof JsonWrapper) {
 
-                return $this->flattenDependencies($fakeRequest, $field->fields);
+                return $this->flattenDependencies($fakeRequest, $field->fields->toArray());
 
             }
 
@@ -331,7 +331,7 @@ trait HasConditionalContainer
 
                 if ($field instanceof JsonWrapper) {
 
-                    return $this->findAllContainers($field->fields);
+                    return $this->findAllContainers($field->fields->toArray());
 
                 }
 
