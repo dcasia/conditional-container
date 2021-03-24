@@ -315,8 +315,8 @@
                     case 'key-value-field':
                         return 'finalPayload'
 
-                  case 'dynamic-select':
-                    return 'value.value'
+                    case 'dynamic-select':
+                        return 'value.value'
 
                     default:
                         return 'value'
