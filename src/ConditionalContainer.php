@@ -108,6 +108,17 @@ class ConditionalContainer extends Field
         }
 
     }
+    
+    public function resolveForAction ($request)
+    {
+        $expressionsMap = $this->expressions->map(function ($expression) {
+            return is_callable($expression) ? $expression() : $expression;
+        });
+
+        $this->withMeta(['expressionsMap' => $expressionsMap]);
+
+        return $this->resolveUsing(function () { });
+    }
 
     public function fill(NovaRequest $request, $model)
     {
