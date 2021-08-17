@@ -91,7 +91,7 @@
         computed: {
             watchableAttributes() {
 
-                return this.field.expressionsMap.join()
+                return this.field.expressions.join()
 
             }
             // watchableAttributes() {
