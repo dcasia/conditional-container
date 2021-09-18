@@ -3,10 +3,10 @@
 namespace DigitalCreative\ConditionalContainer;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Nova\Contracts\RelatableField;
-use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
@@ -42,7 +42,7 @@ class ConditionalContainer extends Field
         '===', '==', '=',
         'includes', 'contains',
         'ends with', 'starts with', 'startsWith', 'endsWith',
-        'boolean', 'truthy'
+        'boolean', 'truthy',
     ];
 
     /**
@@ -108,14 +108,14 @@ class ConditionalContainer extends Field
         }
 
     }
-    
-    public function resolveForAction ($request)
+
+    public function resolveForAction($request)
     {
         $expressionsMap = $this->expressions->map(function ($expression) {
             return is_callable($expression) ? $expression() : $expression;
         });
 
-        $this->withMeta(['expressionsMap' => $expressionsMap]);
+        $this->withMeta([ 'expressionsMap' => $expressionsMap ]);
 
         return $this->resolveUsing(function () { });
     }
@@ -243,7 +243,7 @@ class ConditionalContainer extends Field
 
         $operator = collect(self::OPERATORS)
             ->filter(function ($operator) use ($literal) {
-                return strpos($literal, $operator) !== false;
+                return Str::of($literal)->replace('->', '.')->contains($operator);
             })
             ->first();
 
@@ -254,7 +254,7 @@ class ConditionalContainer extends Field
         return [
             $attribute,
             $operator,
-            $value
+            $value,
         ];
 
     }
@@ -270,7 +270,13 @@ class ConditionalContainer extends Field
                 return $this->relationalOperatorLeafResolver(...$arguments);
             });
 
-            return $resolver($values);
+            return $resolver(
+                collect(Arr::dot($values))->mapWithKeys(function ($value, string $key) {
+                    return [
+                        Str::of($key)->replace('.', '->')->__toString() => $value,
+                    ];
+                })
+            );
 
         });
     }
