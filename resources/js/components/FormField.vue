@@ -235,6 +235,12 @@
 
                 }
 
+                if (!isNaN(attributeValue)) {
+
+                    attributeValue = parseInt(attributeValue)
+
+                }
+
                 if (!isNaN(conditionValue)) {
 
                     conditionValue = parseInt(conditionValue)
