@@ -77,7 +77,9 @@
 
         mounted() {
 
-            this.deepSearch(this.$root.$children)
+            // nextTick will make sure any previous deletions have been done
+            // before trying to register them.
+            this.$nextTick(() => this.deepSearch(this.$root.$children))
 
             this.$root.$on('update-conditional-container', this.checkResolver)
             this.$once('hook:beforeDestroy', () => {
