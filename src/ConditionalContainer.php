@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Laravel\Nova\Contracts\RelatableField;
 use Laravel\Nova\Fields\Field;
+use Laravel\Nova\Fields\File;
 use Laravel\Nova\Http\Controllers\ResourceUpdateController;
 use Laravel\Nova\Http\Controllers\UpdateFieldController;
 use Laravel\Nova\Http\Requests\NovaRequest;
@@ -306,6 +307,7 @@ class ConditionalContainer extends Field
                 if ($field instanceof Field &&
                     !blank($field->attribute) &&
                     !$field->isReadonly($request) &&
+                    !$field instanceof File &&
                     !$field instanceof RelatableField &&
                     !$field instanceof \Whitecube\NovaFlexibleContent\Flexible &&
                     !$field instanceof \Benjacho\BelongsToManyField\BelongsToManyField &&
