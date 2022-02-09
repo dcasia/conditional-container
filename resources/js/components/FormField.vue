@@ -235,11 +235,11 @@
                     attributeValue = parseInt(attributeValue)
                     conditionValue = parseInt(conditionValue)
 
-                }
+                    if (!isNaN(attributeValue)) {
 
-                if (!isNaN(attributeValue)) {
+                        attributeValue = parseInt(attributeValue)
 
-                    attributeValue = parseInt(attributeValue)
+                    }
 
                 }
 
