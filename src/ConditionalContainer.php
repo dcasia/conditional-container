@@ -56,7 +56,9 @@ class ConditionalContainer extends Field
 
         parent::__construct('conditional_container_' . Str::random(10));
 
-        $this->fields = collect($fields);
+        $this->fields = collect($fields)->filter(function (Field $field) {
+            return $field->authorize(resolve(NovaRequest::class));
+        });
         $this->expressions = collect();
 
         $this->withMeta([ 'operation' => 'some' ]);
