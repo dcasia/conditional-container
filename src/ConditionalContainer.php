@@ -305,7 +305,6 @@ class ConditionalContainer extends Field
             foreach ($this->fields as $field) {
 
                 if ($field instanceof Field &&
-                    $field->isShownOnUpdate($request, $request) &&
                     !blank($field->attribute) &&
                     !$field->isReadonly($request) &&
                     !$field instanceof File &&
