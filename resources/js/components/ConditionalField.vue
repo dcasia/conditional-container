@@ -7,7 +7,6 @@
             <component
                 ref="fields"
                 @hook:mounted="registerItSelf(index)"
-
                 :is="'form-' + childField.component"
                 :resource-name="resourceName"
                 :resource-id="resourceId"
@@ -55,101 +54,85 @@
 
             return {
                 resolvers: this.field.expressions.map(expression => {
-
                     const parser = new logipar.Logipar()
 
                     parser.parse(expression)
 
                     return parser.filterFunction(this.relationalOperatorLeafResolver)
-
                 }),
                 conditionSatisfied: false,
                 operators: [
+
                     '>=', '<=', '<', '>',
                     '!==', '!=',
                     '===', '==', '=',
                     'includes', 'contains',
                     'ends with', 'starts with', 'startsWith', 'endsWith',
                     'boolean ', 'truthy'
-                ]
+                ],
+                fieldNames: []
             }
+
         },
 
         mounted() {
 
-            /**
-             * nextTick will make sure any previous deletions have been done
-             * before trying to register them.
-             */
-            this.$nextTick(() => this.deepSearch(this.$root.$children))
+            const fieldNames = [];
 
-            this.$root.$on('update-conditional-container', this.checkResolver)
-            this.$once('hook:beforeDestroy', () => {
-                this.$root.$off('update-conditional-container', this.checkResolver)
-            })
+            for(const expression of this.field.expressions) {
 
-            this.checkResolver()
+                const parser = new logipar.Logipar()
+
+                parser.parse(expression)
+
+                parser.walk((step) => {
+                    if (step.token.literal) {
+                        const [attribute, operator, value] = this.splitLiteral(step.token.literal)
+
+                        if (!fieldNames.includes(attribute)) {
+                            fieldNames.push(attribute)
+                        }
+                    }
+                })
+
+            }
+
+            const onChange = (fieldName, value) => {
+
+                valueBag[fieldName] = value;
+
+                this.checkResolver()
+
+            }
+
+            this.fieldNames = fieldNames;
+
+            for (const fieldName of fieldNames) {
+
+                Nova.$on(`${fieldName}-change`, (value) => onChange(fieldName, value))
+                Nova.$on(`${fieldName}-value`, (value) => onChange(fieldName, value))
+
+                Nova.$emit(`${fieldName}-get-value`)
+
+            }
 
         },
 
-        computed: {
-            watchableAttributes() {
+        beforeUnmount() {
 
-                return this.field.expressionsMap.join()
+            for (const fieldName of this.fieldNames) {
+
+                Nova.$off(`${fieldName}-change`, (value) => onChange(fieldName, value))
 
             }
-            // watchableAttributes() {
-            //
-            //     const attributes = []
-            //
-            //     this.parser.walk(node => {
-            //
-            //         if (node.token.type === 'LITERAL') {
-            //
-            //             const [attribute] = this.splitLiteral(node.token.literal)
-            //
-            //             attributes.push(attribute)
-            //
-            //         }
-            //
-            //     })
-            //
-            //     return attributes
-            //
-            // }
+
         },
 
         methods: {
 
-            deepSearch(children) {
-
-                if (children) {
-
-                    for (const child of children) {
-
-                        if (child.field && child.field.component !== 'conditional-container') {
-
-                            this.registerDependencyWatchers(child)
-
-                        }
-
-                        this.deepSearch(child.$children)
-
-                    }
-
-                }
-
-            },
-
             checkResolver() {
 
                 this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(valueBag))
-
-            },
-
-            registerItSelf(index) {
-
-                this.registerDependencyWatchers(this.$refs.fields[index])
 
             },
 
@@ -164,45 +147,6 @@
                 }
 
                 return false
-
-            },
-
-            registerDependencyWatchers(component) {
-
-                const attribute = component.field.attribute
-
-                /**
-                 * @todo walk the tokens tree in order to determine if a value should be watchable or not!!!
-                 */
-                if (this.watchableAttributes.includes(attribute) && !valueBag.hasOwnProperty(attribute)) {
-
-                    const watchableAttribute = this.findWatchableComponentAttribute(component)
-
-                    /**
-                     * Initialize bag with initial value
-                     */
-                    this.setBagValue(component, attribute, component[watchableAttribute])
-
-                    component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
-                    component.$watch(watchableAttribute, value => this.setBagValue(component, attribute, value))
-
-                }
-
-            },
-
-            setBagValue(component, attribute, value) {
-
-                valueBag[attribute] = this.parseComponentValue(component, value)
-
-                this.$root.$emit('update-conditional-container')
-
-            },
-
-            deleteBagAttribute(attribute) {
-
-                delete valueBag[attribute]
-
-                this.$root.$emit('update-conditional-container')
 
             },
 
@@ -293,78 +237,6 @@
 
             },
 
-            parseComponentValue(component, value) {
-
-                switch (component.field.component) {
-
-                    case 'nova-attach-many':
-                        return JSON.parse(value || '[]')
-
-                    case 'BelongsToManyField':
-                        return (value || []).map(({id}) => id)
-
-                }
-
-                return value
-
-            },
-
-            findWatchableComponentAttribute(component) {
-
-                switch (component.field.component) {
-
-                    case 'belongs-to-field':
-                        return 'selectedResource.value'
-
-                    case 'morph-to-field':
-                        return 'resourceType'
-
-                    case 'file-field':
-                        return 'file'
-
-                    case 'key-value-field':
-                        return 'finalPayload'
-
-                    case 'dynamic-select':
-                        return 'value.value'
-
-                    default:
-                        return 'value'
-
-                }
-
-            },
-
-            /*
-             * Set the initial, internal value for the field.
-             */
-            setInitialValue() {
-                this.value = null
-            },
-
-            /**
-             * Fill the given FormData object with the field's internal value.
-             */
-            fill(formData) {
-
-                if (this.conditionSatisfied) {
-
-                    for (const field of this.field.fields) {
-
-                        field.fill(formData)
-
-                    }
-
-                }
-
-            },
-
-            /**
-             * Update the field's internal value.
-             */
-            handleChange(value) {
-                this.value = value
-            }
         }
     }
 </script>
