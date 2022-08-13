@@ -34,10 +34,12 @@ trait HasConditionalContainer
     /**
      * Get the panels that are available for the given detail request.
      *
-     * @param NovaRequest $request
-     * @return array
+     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param  \Laravel\Nova\Resource  $resource
+     * @param  \Laravel\Nova\Fields\FieldCollection<int, \Laravel\Nova\Fields\Field>  $fields
+     * @return array<int, \Laravel\Nova\Panel>
      */
-    public function availablePanelsForDetail(NovaRequest $request, Resource $resource)
+    public function availablePanelsForDetail(NovaRequest $request, Resource $resource, FieldCollection $fields)
     {
         $panels = parent::availablePanelsForDetail($request, $resource);
         $fields = parent::availableFields($request);
@@ -45,14 +47,14 @@ trait HasConditionalContainer
         return $this->mergePanels($panels, $this->findAllActiveContainers($fields, $this));
     }
 
-    /**
-     * Get the panels that are available for the given create request.
-     *
-     * @param NovaRequest $request
-     *
-     * @return array
-     */
-    public function availablePanelsForCreate($request)
+  /**
+   * Get the panels that are available for the given create request.
+   *
+   * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+   * @param  \Laravel\Nova\Fields\FieldCollection<int, \Laravel\Nova\Fields\Field>|null  $fields
+   * @return array<int, \Laravel\Nova\Panel>
+   */
+  public function availablePanelsForCreate($request, FieldCollection $fields = null)
     {
         $panels = parent::availablePanelsForCreate($request);
         $fields = parent::availableFields($request);
@@ -63,11 +65,12 @@ trait HasConditionalContainer
     /**
      * Get the panels that are available for the given update request.
      *
-     * @param NovaRequest $request
-     *
-     * @return array
+     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param  \Laravel\Nova\Resource  $resource
+     * @param  \Laravel\Nova\Fields\FieldCollection<int, \Laravel\Nova\Fields\Field>|null  $fields
+     * @return array<int, \Laravel\Nova\Panel>
      */
-    public function availablePanelsForUpdate(NovaRequest $request, Resource $resource = null)
+    public function availablePanelsForUpdate(NovaRequest $request, Resource $resource = null, FieldCollection $fields = null)
     {
         $panels = parent::availablePanelsForUpdate($request, $resource);
         $fields = parent::availableFields($request);
