@@ -31,45 +31,25 @@ trait HasConditionalContainer
         return $this->availableFields($request)->whereInstanceOf(RelatableField::class);
     }
 
-    /**
-     * Get the panels that are available for the given detail request.
-     *
-     * @param NovaRequest $request
-     * @return array
-     */
-    public function availablePanelsForDetail(NovaRequest $request, Resource $resource)
+    public function availablePanelsForDetail(NovaRequest $request, Resource $resource, FieldCollection $fields)
     {
-        $panels = parent::availablePanelsForDetail($request, $resource);
+        $panels = parent::availablePanelsForDetail($request, $resource, $fields);
         $fields = parent::availableFields($request);
 
         return $this->mergePanels($panels, $this->findAllActiveContainers($fields, $this));
     }
 
-    /**
-     * Get the panels that are available for the given create request.
-     *
-     * @param NovaRequest $request
-     *
-     * @return array
-     */
-    public function availablePanelsForCreate($request)
+    public function availablePanelsForCreate($request, FieldCollection $fields = null)
     {
-        $panels = parent::availablePanelsForCreate($request);
+        $panels = parent::availablePanelsForCreate($request, $fields);
         $fields = parent::availableFields($request);
 
         return $this->mergePanels($panels, $this->findAllContainers($fields));
     }
 
-    /**
-     * Get the panels that are available for the given update request.
-     *
-     * @param NovaRequest $request
-     *
-     * @return array
-     */
-    public function availablePanelsForUpdate(NovaRequest $request, Resource $resource = null)
+    public function availablePanelsForUpdate(NovaRequest $request, Resource $resource = null, FieldCollection $fields = null)
     {
-        $panels = parent::availablePanelsForUpdate($request, $resource);
+        $panels = parent::availablePanelsForUpdate($request, $resource, $fields);
         $fields = parent::availableFields($request);
 
         return $this->mergePanels($panels, $this->findAllContainers($fields));
@@ -308,10 +288,10 @@ trait HasConditionalContainer
     private function findAllActiveContainers(Collection $fields, $resource): Collection
     {
         return $this->findAllContainers($fields)
-                    ->filter(function ($container) use ($resource) {
-                        return $container->runConditions(collect($resource->toArray()));
-                    })
-                    ->values();
+            ->filter(function ($container) use ($resource) {
+                return $container->runConditions(collect($resource->toArray()));
+            })
+            ->values();
     }
 
     private function findAllContainers($fields): Collection

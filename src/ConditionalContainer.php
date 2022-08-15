@@ -371,7 +371,7 @@ class ConditionalContainer extends Field
 
     }
 
-    public function jsonSerialize()
+    public function jsonSerialize(): array
     {
         return array_merge([
             'fields' => $this->fields,
