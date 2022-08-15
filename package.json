@@ -15,6 +15,5 @@
         "@vue/compiler-sfc": "^3.2.22",
         "postcss": "^8.3.11",
         "vue-loader": "^16.8.3"
-    },
-    "dependencies": {}
+    }
 }

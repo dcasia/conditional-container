@@ -4,17 +4,17 @@ export default {
 
         if (this.field) {
 
-            Nova.$on(`${this.field.attribute}-get-value`, () => {
+            Nova.$on(`${ this.field.attribute }-get-value`, () => {
 
-                Nova.$emit(`${this.field.attribute}-value`, this.checkableValuesGetValue())
+                Nova.$emit(`${ this.field.attribute }-value`, this.checkableValuesGetValue())
 
             })
 
             if (this.hasFormUniqueId === true) {
 
-                Nova.$on(`${this.formUniqueId}-${this.field.attribute}-get-value`, () => {
+                Nova.$on(`${ this.formUniqueId }-${ this.field.attribute }-get-value`, () => {
 
-                    Nova.$emit(`${this.field.attribute}-value`, this.checkableValuesGetValue())
+                    Nova.$emit(`${ this.field.attribute }-value`, this.checkableValuesGetValue())
 
                 })
 
@@ -42,12 +42,12 @@ export default {
                 case 'nova-attach-many':
                     return JSON.parse(value || '[]')
                 case 'BelongsToManyField':
-                    return (value || []).map(({id}) => id)
+                    return (value || []).map(({ id }) => id)
                 default:
                     return this.value
             }
 
-        }
+        },
 
     },
 
@@ -57,7 +57,7 @@ export default {
 
             this.emitFieldValueChange(this.field.attribute, this.fileName)
 
-        }
+        },
 
-    }
+    },
 }

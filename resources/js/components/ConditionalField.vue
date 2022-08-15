@@ -1,12 +1,12 @@
 <template>
 
-    <div v-if="conditionSatisfied" class="conditional-container">
+    <div v-if="conditionSatisfied"
+         class="conditional-container border-b border-gray-100 dark:border-gray-700 md:flex-row">
 
         <div v-for="(childField, index) in field.fields" :key="index">
 
             <component
-                ref="fields"
-                @hook:mounted="registerItSelf(index)"
+                @vue:mounted="registerItSelf"
                 :is="'form-' + childField.component"
                 :resource-name="resourceName"
                 :resource-id="resourceId"
@@ -17,7 +17,7 @@
                 :via-resource="viaResource"
                 :via-resource-id="viaResourceId"
                 :via-relationship="viaRelationship"
-                :show-help-text="childField.helpText != null"
+                :show-help-text="childField.helpText !== null"
             />
 
         </div>
@@ -28,7 +28,7 @@
 
 <script>
 
-    import {FormField, HandlesValidationErrors} from 'laravel-nova'
+    import { FormField, HandlesValidationErrors } from 'laravel-nova'
     import logipar from 'logipar'
 
     const valueBag = {}
@@ -37,7 +37,7 @@
 
         name: 'ConditionalContainer',
 
-        mixins: [FormField, HandlesValidationErrors],
+        mixins: [ FormField, HandlesValidationErrors ],
 
         props: [
             'field',
@@ -47,7 +47,7 @@
             'viaResourceId',
             'viaRelationship',
             'relatedResourceId',
-            'relatedResourceName'
+            'relatedResourceName',
         ],
 
         data() {
@@ -62,24 +62,23 @@
                 }),
                 conditionSatisfied: false,
                 operators: [
-
                     '>=', '<=', '<', '>',
                     '!==', '!=',
                     '===', '==', '=',
                     'includes', 'contains',
                     'ends with', 'starts with', 'startsWith', 'endsWith',
-                    'boolean ', 'truthy'
+                    'boolean ', 'truthy',
                 ],
-                fieldNames: []
+                fieldNames: [],
             }
 
         },
 
         mounted() {
 
-            const fieldNames = [];
+            const fieldNames = []
 
-            for(const expression of this.field.expressions) {
+            for (const expression of this.field.expressions) {
 
                 const parser = new logipar.Logipar()
 
@@ -87,7 +86,7 @@
 
                 parser.walk((step) => {
                     if (step.token.literal) {
-                        const [attribute, operator, value] = this.splitLiteral(step.token.literal)
+                        const [ attribute, operator, value ] = this.splitLiteral(step.token.literal)
 
                         if (!fieldNames.includes(attribute)) {
                             fieldNames.push(attribute)
@@ -99,20 +98,20 @@
 
             const onChange = (fieldName, value) => {
 
-                valueBag[fieldName] = value;
+                valueBag[ fieldName ] = value
 
                 this.checkResolver()
 
             }
 
-            this.fieldNames = fieldNames;
+            this.fieldNames = fieldNames
 
             for (const fieldName of fieldNames) {
 
-                Nova.$on(`${fieldName}-change`, (value) => onChange(fieldName, value))
-                Nova.$on(`${fieldName}-value`, (value) => onChange(fieldName, value))
+                Nova.$on(`${ fieldName }-change`, (value) => onChange(fieldName, value))
+                Nova.$on(`${ fieldName }-value`, (value) => onChange(fieldName, value))
 
-                Nova.$emit(`${fieldName}-get-value`)
+                Nova.$emit(`${ fieldName }-get-value`)
 
             }
 
@@ -122,7 +121,7 @@
 
             for (const fieldName of this.fieldNames) {
 
-                Nova.$off(`${fieldName}-change`, (value) => onChange(fieldName, value))
+                Nova.$off(`${ fieldName }-change`, (value) => onChange(fieldName, value))
 
             }
 
@@ -130,19 +129,23 @@
 
         methods: {
 
+            registerItSelf(component){
+
+            },
+
             checkResolver() {
 
-                this.conditionSatisfied = this.resolvers[this.field.operation](resolver => resolver(valueBag))
+                this.conditionSatisfied = this.resolvers[ this.field.operation ](resolver => resolver(valueBag))
 
             },
 
             relationalOperatorLeafResolver(values, literal) {
 
-                const [attribute, operator, value] = this.splitLiteral(literal)
+                const [ attribute, operator, value ] = this.splitLiteral(literal)
 
                 if (values.hasOwnProperty(attribute)) {
 
-                    return this.executeCondition(values[attribute], operator, value)
+                    return this.executeCondition(values[ attribute ], operator, value)
 
                 }
 
@@ -152,7 +155,7 @@
 
             splitLiteral(literal) {
 
-                const operator = this.operators.find(operator => literal.includes(` ${operator} `))
+                const operator = this.operators.find(operator => literal.includes(` ${ operator } `))
 
                 if (!operator) {
 
@@ -165,7 +168,7 @@
                 return [
                     chunks.shift().trim(),
                     operator,
-                    chunks.join(operator).trim()
+                    chunks.join(operator).trim(),
                 ]
 
             },
@@ -174,7 +177,7 @@
 
                 conditionValue = conditionValue.replace(/^["'](.+)["']$/, '$1')
 
-                if (['<', '>', '<=', '>='].includes(operator) && conditionValue) {
+                if ([ '<', '>', '<=', '>=' ].includes(operator) && conditionValue) {
 
                     attributeValue = parseInt(attributeValue)
                     conditionValue = parseInt(conditionValue)
@@ -193,7 +196,7 @@
 
                 }
 
-                if (['true', 'false'].includes(conditionValue)) {
+                if ([ 'true', 'false' ].includes(conditionValue)) {
 
                     conditionValue = conditionValue === 'true'
 
@@ -237,6 +240,7 @@
 
             },
 
-        }
+        },
     }
+
 </script>

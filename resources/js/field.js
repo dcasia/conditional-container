@@ -1,5 +1,5 @@
-import CheckableValues from "./mixins/CheckableValues";
-import ConditionalField from "./components/ConditionalField";
+import CheckableValues from './mixins/CheckableValues'
+import ConditionalField from './components/ConditionalField'
 
 Nova.booting((Vue, router, store) => {
 
@@ -21,9 +21,9 @@ function addMixinToFields() {
 
         Object.keys(components).forEach((componentName) => {
 
-            if (componentName.startsWith('Form')) {
+            if (componentName.startsWith('Form') || componentName.startsWith('form')) {
 
-                const component = components[componentName]
+                const component = components[ componentName ]
 
                 if (component.mixins) {
 
@@ -31,7 +31,7 @@ function addMixinToFields() {
 
                 } else {
 
-                    component.mixins = [CheckableValues]
+                    component.mixins = [ CheckableValues ]
 
                 }
 
