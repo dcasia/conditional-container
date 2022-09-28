@@ -184,7 +184,7 @@
                     this.setBagValue(component, attribute, component[watchableAttribute])
 
                     component.$once('hook:beforeDestroy', () => this.deleteBagAttribute(attribute))
-                    component.$watch(watchableAttribute, value => this.setBagValue(component, attribute, value))
+                    component.$watch(watchableAttribute, value => this.setBagValue(component, attribute, value), { immediate: true })
 
                 }
 
