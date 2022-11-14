@@ -105,9 +105,7 @@ trait HasConditionalContainer
         }
 
         if ($controller instanceof CreationFieldController ||
-            $controller instanceof UpdateFieldController ||
-            $controller instanceof ResourceStoreController ||
-            $controller instanceof ResourceUpdateController) {
+            $controller instanceof UpdateFieldController) {
 
             $fields = parent::availableFields($request);
             $containers = $this->findAllContainers($fields);
